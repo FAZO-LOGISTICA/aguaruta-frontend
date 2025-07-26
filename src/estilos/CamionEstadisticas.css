@@ -1,0 +1,70 @@
+.estadisticas-main {
+  padding: 30px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  margin: 40px auto;
+  max-width: 95%;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.logo-superior {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.logo-estadisticas {
+  max-height: 90px;
+  display: block;
+  margin: 0 auto;
+}
+
+.tabla-container h2 {
+  text-align: center;
+  color: #003366;
+  margin-bottom: 20px;
+}
+
+.filtros {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.filtros select,
+.filtros button {
+  padding: 8px 15px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+
+.filtros button {
+  background-color: #003366;
+  color: white;
+  cursor: pointer;
+}
+
+.filtros button:hover {
+  background-color: #0055aa;
+}
+
+.tabla-estadisticas {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla-estadisticas th,
+.tabla-estadisticas td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.tabla-estadisticas th {
+  background-color: #003366;
+  color: white;
+}

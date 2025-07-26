@@ -1,0 +1,89 @@
+.vista-contenedor {
+  background: rgba(255, 255, 255, 0.88);
+  padding: 30px;
+  border-radius: 16px;
+  max-width: 1200px;
+  margin: 180px auto 40px;
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(3px);
+}
+
+.titulo-vista {
+  text-align: center;
+  font-size: 28px;
+  font-weight: bold;
+  color: #003366;
+  margin-bottom: 25px;
+  text-shadow: 1px 1px 2px #ccc;
+}
+
+.tabla-nueva-distribucion {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+  background-color: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.tabla-nueva-distribucion th,
+.tabla-nueva-distribucion td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: center;
+}
+
+.tabla-nueva-distribucion th {
+  background-color: #009fe3;
+  color: white;
+  font-weight: bold;
+}
+
+.tabla-nueva-distribucion tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.tabla-nueva-distribucion tr:hover {
+  background-color: #e0f3ff;
+  transition: background-color 0.2s ease;
+}
+
+.filtros-distribucion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+
+.filtros-distribucion input,
+.filtros-distribucion select {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  width: 200px;
+}
+
+.botones-exportar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 15px;
+  gap: 12px;
+}
+
+.botones-exportar button {
+  padding: 10px 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.botones-exportar button:hover {
+  background-color: #0056b3;
+}

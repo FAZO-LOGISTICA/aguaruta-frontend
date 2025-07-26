@@ -1,0 +1,122 @@
+/* Fondo principal y estilo general */
+.rutas-main {
+  padding: 30px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  margin: 40px auto;
+  max-width: 95%;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+/* Logo institucional superior */
+.logo-superior {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.logo-superior img {
+  max-height: 200px;
+  transition: 0.3s ease-in-out;
+}
+
+/* Encabezado del módulo */
+.tabla-container h2 {
+  text-align: center;
+  color: #003366;
+  margin-bottom: 20px;
+}
+
+/* Sección de filtros */
+.filtros {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.filtros input,
+.filtros select,
+.filtros button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 0.95rem;
+  min-width: 150px;
+}
+
+/* Tabla general */
+.tabla-rutas {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Cabecera */
+.tabla-rutas th {
+  background-color: #003366;
+  color: white;
+  font-weight: bold;
+  padding: 10px;
+  text-align: center;
+}
+
+/* Celdas */
+.tabla-rutas td {
+  padding: 10px;
+  border: 1px solid #ddd;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+/* Fila par */
+.tabla-rutas tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+/* Botones dentro de la tabla */
+.tabla-rutas button {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  background-color: #0066cc;
+  color: white;
+}
+
+.tabla-rutas button:hover {
+  background-color: #004c99;
+}
+
+/* Input al editar celda */
+.tabla-rutas input[type="text"],
+.tabla-rutas input[type="number"] {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+.logo-inicio {
+  width: 250px;
+  margin-bottom: 20px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+.logo-superior {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.logo-inicio {
+  width: 400px;           /* Tamaño más grande */
+  height: auto;           /* Para que no se deforme */
+  display: auto;
+  margin-left: auto;
+  margin-right: auto;
+}

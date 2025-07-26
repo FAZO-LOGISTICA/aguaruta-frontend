@@ -1,0 +1,54 @@
+.vista-contenedor {
+  background: rgba(255, 255, 255, 0.85);
+  padding: 30px;
+  border-radius: 12px;
+  max-width: 700px;
+  margin: 180px auto 40px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.titulo-vista {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 26px;
+  color: #003366;
+}
+
+.formulario-registro {
+  display: flex;
+  flex-direction: column;
+}
+
+.formulario-registro label {
+  display: block;
+  margin-top: 12px;
+  font-weight: bold;
+  color: #333;
+}
+
+.formulario-registro input,
+.formulario-registro select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 4px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+}
+
+.boton-registrar {
+  margin-top: 25px;
+  padding: 12px 20px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  font-weight: bold;
+  font-size: 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.boton-registrar:hover {
+  background-color: #218838;
+}

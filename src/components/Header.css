@@ -1,0 +1,12 @@
+/* src/components/Header.css */
+.logo-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.logo-fijo {
+  width: 220px !important;
+  height: auto !important;
+  object-fit: contain !important;
+}

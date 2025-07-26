@@ -1,0 +1,62 @@
+.rutas-main {
+  padding: 30px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  margin: 40px auto;
+  max-width: 95%;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.logo-superior {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.logo-superior img {
+  max-height: 90px;
+}
+
+.tabla-container h2 {
+  text-align: center;
+  color: #003366;
+  margin-bottom: 20px;
+}
+
+.filtros {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.filtros button {
+  padding: 8px 15px;
+  border-radius: 8px;
+  border: none;
+  background-color: #003366;
+  color: white;
+  cursor: pointer;
+}
+
+.filtros button:hover {
+  background-color: #0055aa;
+}
+
+.tabla-rutas {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla-rutas th,
+.tabla-rutas td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.tabla-rutas th {
+  background-color: #003366;
+  color: white;
+}
