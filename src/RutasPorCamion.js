@@ -69,6 +69,9 @@ const RutasPorCamion = () => {
     doc.save("resumen_por_camion.pdf");
   };
 
+  // AGREGADO para evitar el warning de Netlify:
+  console.log(rutas);
+
   return (
     <div className="main-container fade-in">
       <h2 className="titulo">Resumen de Rutas por Camión</h2>
