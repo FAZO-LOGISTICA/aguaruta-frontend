@@ -10,7 +10,7 @@ const RutasPorCamion = () => {
   const [resumen, setResumen] = useState([]);
 
   useEffect(() => {
-    axios.get("http://localhost:8000/rutas-activas").then((res) => {
+    axios.get("https://aguaruta-backend.onrender.com/rutas-activas").then((res) => {
       setRutas(res.data);
       agruparPorCamion(res.data);
     });
