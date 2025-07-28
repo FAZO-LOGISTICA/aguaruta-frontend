@@ -13,6 +13,9 @@ const CamionEstadisticas = () => {
   const [datos, setDatos] = useState([]);
   const [camionSeleccionado, setCamionSeleccionado] = useState('Todos');
 
+  // --- NUEVO: Obtener el rol desde localStorage ---
+  const rol = localStorage.getItem("rol");
+
   useEffect(() => {
     axios.get('http://localhost:8000/rutas-activas')
       .then(res => {
@@ -71,8 +74,14 @@ const CamionEstadisticas = () => {
           <option value="Todos">Todos</option>
           {camiones.map((c, i) => <option key={i} value={c}>{c}</option>)}
         </select>
-        <button onClick={exportarExcel}><FaFileExcel /> Exportar Excel</button>
-        <button onClick={exportarPDF}><FaFilePdf /> Exportar PDF</button>
+        
+        {/* --- SOLO PARA USUARIOS QUE NO SON INVITADO --- */}
+        {rol !== "invitado" && (
+          <>
+            <button onClick={exportarExcel}><FaFileExcel /> Exportar Excel</button>
+            <button onClick={exportarPDF}><FaFilePdf /> Exportar PDF</button>
+          </>
+        )}
       </div>
 
       <table className="tabla">

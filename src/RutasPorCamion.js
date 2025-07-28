@@ -9,6 +9,9 @@ const RutasPorCamion = () => {
   const [rutas, setRutas] = useState([]);
   const [resumen, setResumen] = useState([]);
 
+  // AGREGADO: Obtener rol de localStorage
+  const rol = localStorage.getItem("rol");
+
   useEffect(() => {
     axios.get("https://aguaruta-backend.onrender.com/rutas-activas").then((res) => {
       setRutas(res.data);
@@ -76,10 +79,13 @@ const RutasPorCamion = () => {
     <div className="main-container fade-in">
       <h2 className="titulo">Resumen de Rutas por Camión</h2>
 
-      <div className="botones-exportar">
-        <button onClick={exportarExcel}>📤 Excel</button>
-        <button onClick={exportarPDF}>📄 PDF</button>
-      </div>
+      {/* --- SOLO PARA USUARIOS QUE NO SON INVITADO --- */}
+      {rol !== "invitado" && (
+        <div className="botones-exportar">
+          <button onClick={exportarExcel}>📤 Excel</button>
+          <button onClick={exportarPDF}>📄 PDF</button>
+        </div>
+      )}
 
       <table className="tabla">
         <thead>

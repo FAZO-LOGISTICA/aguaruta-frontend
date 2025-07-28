@@ -10,6 +10,9 @@ const ComparacionSemanal = () => {
   const [datos, setDatos] = useState([]);
   const [camion, setCamion] = useState('Todos');
 
+  // --- NUEVO: Obtener el rol desde localStorage ---
+  const rol = localStorage.getItem("rol");
+
   useEffect(() => {
     axios.get('http://localhost:8000/rutas-activas')
       .then(res => setDatos(res.data))
@@ -74,10 +77,13 @@ const ComparacionSemanal = () => {
         </BarChart>
       </ResponsiveContainer>
 
-      <div className="botones-exportar">
-        <button onClick={exportarExcel}>Exportar Excel</button>
-        <button onClick={exportarPDF}>Exportar PDF</button>
-      </div>
+      {/* --- SOLO PARA USUARIOS QUE NO SON INVITADO --- */}
+      {rol !== "invitado" && (
+        <div className="botones-exportar">
+          <button onClick={exportarExcel}>Exportar Excel</button>
+          <button onClick={exportarPDF}>Exportar PDF</button>
+        </div>
+      )}
     </div>
   );
 };
