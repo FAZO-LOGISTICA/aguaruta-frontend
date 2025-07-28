@@ -1,5 +1,4 @@
-// src/App.js
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import {
   FaHome, FaMapMarkedAlt, FaBookOpen, FaClipboardList,
@@ -20,11 +19,31 @@ import RegistrarEntrega from './RegistrarEntrega';
 import RegistrarNuevoPunto from './RegistrarNuevoPunto';
 import NuevaDistribucion from './NuevaDistribucion';
 import EditarRedistribucion from './EditarRedistribucion';
+import LoginApp from './LoginApp'; // <<--- AGREGADO
 
 function App() {
+  // Estado para chequear si hay usuario logueado
+  const [rol, setRol] = useState(localStorage.getItem("rol"));
+  const [usuario, setUsuario] = useState(localStorage.getItem("usuario"));
+
+  // Función de logout
+  function logout() {
+    localStorage.removeItem("rol");
+    localStorage.removeItem("usuario");
+    setRol(null);
+    setUsuario(null);
+  }
+
+  // Si NO hay usuario logueado, muestra LoginApp
+  if (!rol) {
+    return <LoginApp onLogin={(usuario, rol) => { setRol(rol); setUsuario(usuario); }} />;
+  }
+
   return (
     <Router>
       <div className="menu" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem', padding: '1rem' }}>
+        <span style={{fontWeight:'bold'}}>Usuario: {usuario} ({rol})</span>
+        <button onClick={logout}>Cerrar sesión</button>
         <Link to="/"><FaHome /> Inicio</Link>
         <Link to="/mapa"><FaMapMarkedAlt /> Mapa</Link>
         <Link to="/mapa-redistribucion"><FaBookOpen /> Mapa Redistribución</Link>
