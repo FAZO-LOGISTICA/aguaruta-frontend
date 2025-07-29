@@ -1,13 +1,10 @@
-import React, { useState, createContext, useContext } from "react";
+import React, { useState } from "react";
 
-// Contexto para compartir usuario y rol en toda la app (por si lo necesitas)
-export const UserContext = createContext();
-
+// usuarios fijos
 const usuariosFijos = [
   { usuario: "che.gustrago", password: "FAZO-LOGISTICA", rol: "dios" },
   { usuario: "laguna_verde", password: "delegacion", rol: "editor" },
   { usuario: "operaciones", password: "direccion", rol: "editor" },
-  // puedes agregar más aquí si deseas después
 ];
 
 const LoginApp = ({ onLogin }) => {

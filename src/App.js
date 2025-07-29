@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-ro
 import {
   FaHome, FaMapMarkedAlt, FaBookOpen, FaClipboardList,
   FaChartPie, FaTruckMoving, FaChartLine, FaTimesCircle,
-  FaPlusCircle, FaSyncAlt, FaEdit, FaUsers, FaHistory
+  FaPlusCircle, FaSyncAlt, FaEdit, FaHistory
 } from 'react-icons/fa';
 
 import Inicio from './Inicio';
@@ -21,8 +21,6 @@ import NuevaDistribucion from './NuevaDistribucion';
 import EditarRedistribucion from './EditarRedistribucion';
 import LoginApp from './LoginApp';
 
-// COMPONENTES DE ADMINISTRACIÓN
-// (te los crearé después, aquí queda la base)
 const RegistroAcciones = ({ acciones }) => (
   <div style={{ maxWidth: 800, margin: '2em auto', background: 'white', padding: 16, borderRadius: 8 }}>
     <h3>Registro de Acciones</h3>
@@ -147,7 +145,6 @@ function App() {
             <button onClick={() => setMostrarRegistro(r => !r)} style={{ marginLeft: 20, background: "#0856a6", color: "white", border: "none", borderRadius: 5, padding: "5px 14px", fontWeight: "bold", cursor: "pointer" }}>
               <FaHistory /> Registro de acciones
             </button>
-            {/* <Link to="/usuarios"><FaUsers /> Usuarios</Link>   // futuro */}
           </>
         )}
       </div>
