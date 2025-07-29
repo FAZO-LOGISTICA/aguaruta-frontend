@@ -1,41 +1,23 @@
 import React, { useState } from "react";
 
-// usuarios fijos
-const usuariosFijos = [
-  { usuario: "che.gustrago", password: "FAZO-LOGISTICA", rol: "dios" },
-  { usuario: "laguna_verde", password: "delegacion", rol: "editor" },
-  { usuario: "operaciones", password: "direccion", rol: "editor" },
-];
-
-const LoginApp = ({ onLogin }) => {
+const LoginApp = ({ onLogin, onInvitado }) => {
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  // Login normal
   const handleLogin = (e) => {
     e.preventDefault();
-    const encontrado = usuariosFijos.find(
-      (u) =>
-        u.usuario.toLowerCase() === usuario.toLowerCase().trim() &&
-        u.password === password
-    );
-    if (encontrado) {
-      localStorage.setItem("usuario", encontrado.usuario);
-      localStorage.setItem("rol", encontrado.rol);
-      setError("");
-      onLogin(encontrado.usuario, encontrado.rol);
-    } else {
-      setError("Usuario o contraseña incorrectos.");
-    }
+    // Delega la validación a App.js
+    const result = onLogin(usuario, password);
+    // App.js retorna true si login correcto, false si error.
+    if (result === false) setError("Usuario o contraseña incorrectos.");
+    else setError("");
   };
 
-  // Login como invitado
+  // Invitado (sin contraseña)
   const loginInvitado = () => {
-    localStorage.setItem("usuario", "invitado");
-    localStorage.setItem("rol", "invitado");
+    onInvitado();
     setError("");
-    onLogin("invitado", "invitado");
   };
 
   return (
