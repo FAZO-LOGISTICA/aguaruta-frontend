@@ -147,17 +147,6 @@ const LoginApp = ({ onLogin }) => {
           Entrar como invitado
         </button>
       </div>
-      <div style={{ marginTop: 22, fontSize: "0.9em", color: "#888" }}>
-        <div>
-          <b>Usuario dios:</b> che.gustrago / FAZO-LOGISTICA
-        </div>
-        <div>
-          <b>Editor:</b> laguna_verde / delegacion
-        </div>
-        <div>
-          <b>Editor:</b> operaciones / direccion
-        </div>
-      </div>
     </div>
   );
 };
