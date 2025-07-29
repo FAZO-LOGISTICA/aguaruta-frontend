@@ -1,12 +1,6 @@
 // src/AdminUsuarios.js
 import React, { useState } from "react";
 
-const initialUsers = [
-  { username: "che.gustrago", role: "dios" },
-  { username: "laguna_verde", role: "editor" },
-  { username: "operaciones", role: "editor" }
-];
-
 export default function AdminUsuarios({ usuarios, setUsuarios, agregarUsuario, eliminarUsuario, cambiarContraseña }) {
   const [nuevoUsuario, setNuevoUsuario] = useState({
     username: "",
