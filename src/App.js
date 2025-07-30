@@ -1,58 +1,57 @@
 import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from "react-router-dom";
 import LoginApp from "./LoginApp";
+import Inicio from "./Inicio";
 import Mapa from "./Mapa";
 import Graficos from "./Graficos";
 import CamionEstadisticas from "./CamionEstadisticas";
 import ComparacionSemanal from "./ComparacionSemanal";
 import RutasPorCamion from "./RutasPorCamion";
+import RutasActivas from "./RutasActivas";
+import RegistrarEntrega from "./RegistrarEntrega";
+import RegistrarNuevoPunto from "./RegistrarNuevoPunto";
+import NuevaDistribucion from "./NuevaDistribucion";
+import NoEntregadas from "./NoEntregadas";
+import MapaRedistribucion from "./MapaRedistribucion";
+import EditarRedistribucion from "./EditarRedistribucion";
 import AdminUsuarios from "./AdminUsuarios";
-// IMPORTA aquí cualquier otra página/ruta que tengas
 
+// ---- USUARIOS INICIALES ----
 const initialUsuarios = [
   { username: "che.gustrago", password: "FAZO-LOGISTICA", role: "dios" },
   { username: "laguna_verde", password: "delegacion", role: "editor" },
-  { username: "operaciones", password: "direccion", role: "editor" },
+  { username: "operaciones", password: "direccion", role: "editor" }
 ];
 
 function App() {
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [usuarios, setUsuarios] = useState(initialUsuarios);
 
-  // ---- ADMIN DE USUARIOS ----
-  const agregarUsuario = ({ username, password, role }) => {
-    if (usuarios.find(u => u.username === username)) return alert("Ese usuario ya existe.");
-    setUsuarios([...usuarios, { username, password, role }]);
-  };
-
-  const eliminarUsuario = (username) => {
-    if (window.confirm(`¿Seguro que deseas eliminar a ${username}?`))
-      setUsuarios(usuarios.filter(u => u.username !== username));
-  };
-
-  const cambiarContraseña = (username, newPassword, newRole) => {
-    setUsuarios(usuarios.map(u =>
-      u.username === username
-        ? { ...u, password: newPassword || u.password, role: newRole || u.role }
-        : u
-    ));
-  };
-
-  // ---- LOGIN / LOGOUT ----
+  // --- LOGIN ---
   const handleLogin = (username, password) => {
-    const found = usuarios.find(u => u.username === username && u.password === password);
-    if (found) {
-      setUsuarioActual({ username: found.username, role: found.role });
-      return true; // OK
+    const user = usuarios.find(
+      u => u.username === username && u.password === password
+    );
+    if (user) {
+      setUsuarioActual({ username: user.username, role: user.role });
+      localStorage.setItem("rol", user.role); // Para otros componentes si quieres
+      return true;
     } else {
-      return false; // Error
+      return false;
     }
   };
 
-  const handleInvitado = () => setUsuarioActual({ username: "invitado", role: "invitado" });
-  const handleLogout = () => setUsuarioActual(null);
+  const handleInvitado = () => {
+    setUsuarioActual({ username: "invitado", role: "invitado" });
+    localStorage.setItem("rol", "invitado");
+  };
 
-  // ---- MENU DINÁMICO ----
+  const handleLogout = () => {
+    setUsuarioActual(null);
+    localStorage.removeItem("rol");
+  };
+
+  // --- MENÚ DINÁMICO SEGÚN ROL ---
   const menuItems = [
     { path: "/", label: "Inicio", roles: ["dios", "editor", "invitado"] },
     { path: "/mapa", label: "Mapa", roles: ["dios", "editor", "invitado"] },
@@ -60,54 +59,45 @@ function App() {
     { path: "/estadisticas-camion", label: "Estadísticas Camión", roles: ["dios", "editor", "invitado"] },
     { path: "/comparacion-semanal", label: "Comparación Semanal", roles: ["dios", "editor", "invitado"] },
     { path: "/rutas-por-camion", label: "Rutas por Camión", roles: ["dios", "editor", "invitado"] },
-    // Solo para editores y dios (puedes agregar más)
-    { path: "/ruta-activa", label: "Ruta Activa", roles: ["dios", "editor"] },
-    { path: "/nueva-distribucion", label: "Nueva Distribución", roles: ["dios", "editor"] },
-    { path: "/registro-entrega", label: "Registro Entrega", roles: ["dios", "editor"] },
+    // Solo editores y dios
+    { path: "/rutas-activas", label: "Ruta Activa", roles: ["dios", "editor"] },
+    { path: "/registrar-entrega", label: "Registrar Entrega", roles: ["dios", "editor"] },
+    { path: "/registrar-nuevo-punto", label: "Registrar Punto", roles: ["dios", "editor"] },
     // Solo dios
-    { path: "/admin-usuarios", label: "Panel Usuarios", roles: ["dios"] },
+    { path: "/nueva-redistribucion", label: "Editar Redistribución", roles: ["dios"] },
+    { path: "/no-entregadas", label: "No Entregadas", roles: ["dios"] },
+    { path: "/mapa-redistribucion", label: "Mapa Redistribución", roles: ["dios"] },
+    { path: "/admin-usuarios", label: "Usuarios", roles: ["dios"] }
   ];
 
-  // ---- PROTEGER RUTAS SOLO DIOS ----
-  const RutaProtegidaDios = ({ children }) =>
-    usuarioActual?.role === "dios" ? children : <Navigate to="/" replace />;
+  // --- COMPONENTE PARA PROTEGER RUTAS ---
+  const RutaProtegida = ({ allowedRoles, children }) =>
+    allowedRoles.includes(usuarioActual.role) ? children : <Navigate to="/" replace />;
 
   return (
     <Router>
       <div>
-        {/* ----- MENÚ DE NAVEGACIÓN SEGÚN ROL ------ */}
+        {/* ---------- MENÚ ---------- */}
         {usuarioActual && (
-          <nav style={{
-            display: "flex", gap: 16, padding: "10px 30px", background: "#eee",
-            borderBottom: "1px solid #ddd", marginBottom: 24
-          }}>
-            {menuItems
-              .filter(item => item.roles.includes(usuarioActual.role))
-              .map(item => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  style={{
-                    textDecoration: "none",
-                    color: "#1a237e",
-                    fontWeight: "bold",
-                    padding: "6px 10px",
-                    borderRadius: 5
-                  }}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            <span style={{ marginLeft: "auto" }}>
-              Usuario: {usuarioActual.username} ({usuarioActual.role})
-              <button style={{ marginLeft: 16 }} onClick={handleLogout}>Cerrar sesión</button>
-            </span>
+          <nav className="navbar">
+            <ul>
+              {menuItems
+                .filter(item => item.roles.includes(usuarioActual.role))
+                .map(item => (
+                  <li key={item.path}>
+                    <Link to={item.path}>{item.label}</Link>
+                  </li>
+                ))}
+              <li style={{ float: "right" }}>
+                Usuario: {usuarioActual.username} ({usuarioActual.role}){" "}
+                <button onClick={handleLogout}>Cerrar sesión</button>
+              </li>
+            </ul>
           </nav>
         )}
 
-        {/* ------ RUTAS PRINCIPALES ------ */}
+        {/* ---------- RUTAS ---------- */}
         <Routes>
-          {/* LOGIN */}
           {!usuarioActual && (
             <Route
               path="*"
@@ -119,38 +109,58 @@ function App() {
               }
             />
           )}
-
-          {/* SOLO USUARIO LOGUEADO VE EL RESTO */}
           {usuarioActual && (
             <>
-              <Route path="/" element={<Mapa usuario={usuarioActual} />} />
+              <Route path="/" element={<Inicio usuario={usuarioActual} />} />
               <Route path="/mapa" element={<Mapa usuario={usuarioActual} />} />
               <Route path="/graficos" element={<Graficos usuario={usuarioActual} />} />
               <Route path="/estadisticas-camion" element={<CamionEstadisticas usuario={usuarioActual} />} />
               <Route path="/comparacion-semanal" element={<ComparacionSemanal usuario={usuarioActual} />} />
               <Route path="/rutas-por-camion" element={<RutasPorCamion usuario={usuarioActual} />} />
 
-              {/* SOLO EDITOR/DIOS */}
-              <Route path="/ruta-activa" element={["dios", "editor"].includes(usuarioActual.role) ? <div>Ruta Activa</div> : <Navigate to="/" />} />
-              <Route path="/nueva-distribucion" element={["dios", "editor"].includes(usuarioActual.role) ? <div>Nueva Distribución</div> : <Navigate to="/" />} />
-              <Route path="/registro-entrega" element={["dios", "editor"].includes(usuarioActual.role) ? <div>Registro Entrega</div> : <Navigate to="/" />} />
+              {/* EDITOR + DIOS */}
+              <Route path="/rutas-activas" element={
+                <RutaProtegida allowedRoles={["dios", "editor"]}>
+                  <RutasActivas usuario={usuarioActual} />
+                </RutaProtegida>
+              } />
+              <Route path="/registrar-entrega" element={
+                <RutaProtegida allowedRoles={["dios", "editor"]}>
+                  <RegistrarEntrega usuario={usuarioActual} />
+                </RutaProtegida>
+              } />
+              <Route path="/registrar-nuevo-punto" element={
+                <RutaProtegida allowedRoles={["dios", "editor"]}>
+                  <RegistrarNuevoPunto usuario={usuarioActual} />
+                </RutaProtegida>
+              } />
 
-              {/* PANEL ADMIN SOLO DIOS */}
-              <Route
-                path="/admin-usuarios"
-                element={
-                  <RutaProtegidaDios>
-                    <AdminUsuarios
-                      usuarios={usuarios}
-                      setUsuarios={setUsuarios}
-                      agregarUsuario={agregarUsuario}
-                      eliminarUsuario={eliminarUsuario}
-                      cambiarContraseña={cambiarContraseña}
-                    />
-                  </RutaProtegidaDios>
-                }
-              />
-              {/* DEFAULT */}
+              {/* SOLO DIOS */}
+              <Route path="/nueva-redistribucion" element={
+                <RutaProtegida allowedRoles={["dios"]}>
+                  <NuevaDistribucion usuario={usuarioActual} />
+                </RutaProtegida>
+              } />
+              <Route path="/no-entregadas" element={
+                <RutaProtegida allowedRoles={["dios"]}>
+                  <NoEntregadas usuario={usuarioActual} />
+                </RutaProtegida>
+              } />
+              <Route path="/mapa-redistribucion" element={
+                <RutaProtegida allowedRoles={["dios"]}>
+                  <MapaRedistribucion usuario={usuarioActual} />
+                </RutaProtegida>
+              } />
+              <Route path="/admin-usuarios" element={
+                <RutaProtegida allowedRoles={["dios"]}>
+                  <AdminUsuarios
+                    usuarios={usuarios}
+                    setUsuarios={setUsuarios}
+                  />
+                </RutaProtegida>
+              } />
+
+              {/* DEFAULT: redirigir si intenta algo raro */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </>
           )}
