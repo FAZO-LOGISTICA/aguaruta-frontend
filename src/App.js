@@ -65,63 +65,87 @@ function App() {
     <Router>
       {usuarioActual && (
         <nav
-          style={{
-            background: "#173A5E",
-            padding: "0.7rem 2rem",
-            boxShadow: "0 2px 8px #0002",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "2rem"
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
-            {menuItems
-              .filter(item => item.roles.includes(usuarioActual.role))
-              .map(item => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  style={{
-                    color: "#fff",
-                    textDecoration: "none",
-                    fontWeight: 500,
-                    fontSize: "1.06rem",
-                    padding: "0.25rem 0.6rem",
-                    borderRadius: "7px",
-                    transition: "background 0.2s",
-                    marginRight: "0.2rem"
-                  }}
-                  onMouseOver={e => (e.target.style.background = "#20446d")}
-                  onMouseOut={e => (e.target.style.background = "none")}
-                >
-                  {item.label}
-                </Link>
-              ))}
-          </div>
-          <div style={{ color: "#fff", fontWeight: 500 }}>
-            Usuario: {usuarioActual.username} ({usuarioActual.role})
-            <button
-              onClick={handleLogout}
-              style={{
-                marginLeft: "1.2rem",
-                padding: "0.25rem 0.85rem",
-                borderRadius: "7px",
-                border: "none",
-                background: "#F03A4B",
-                color: "#fff",
-                fontWeight: 600,
-                cursor: "pointer",
-                boxShadow: "0 2px 5px #0001",
-                transition: "background 0.15s"
-              }}
-              onMouseOver={e => (e.target.style.background = "#B82637")}
-              onMouseOut={e => (e.target.style.background = "#F03A4B")}
-            >
-              Cerrar sesión
-            </button>
-          </div>
-        </nav>
+  style={{
+    background: "#153a5e",
+    boxShadow: "0 2px 8px #0002",
+    padding: 0,
+    position: "sticky",
+    top: 0,
+    zIndex: 100,
+  }}
+>
+  <div
+    style={{
+      maxWidth: 1400,
+      margin: "0 auto",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "0.2rem 2rem",
+      flexWrap: "wrap"
+    }}
+  >
+    <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
+      {menuItems
+        .filter((item) => item.roles.includes(usuarioActual.role))
+        .map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            style={{
+              color: "#fff",
+              textDecoration: "none",
+              fontWeight: 600,
+              fontSize: "1.12rem",
+              padding: "0.55rem 0.7rem",
+              borderRadius: "6px",
+              transition: "background 0.2s",
+              background: window.location.pathname === item.path ? "#2c5482" : "transparent",
+              margin: 0,
+              display: "block"
+            }}
+            onMouseOver={(e) => (e.target.style.background = "#20446d")}
+            onMouseOut={(e) =>
+              (e.target.style.background =
+                window.location.pathname === item.path ? "#2c5482" : "transparent")
+            }
+          >
+            {item.label}
+          </Link>
+        ))}
+    </div>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "1.4rem"
+      }}
+    >
+      <span style={{ color: "#fff", fontWeight: 400 }}>
+        Usuario: <b>{usuarioActual.username}</b> ({usuarioActual.role})
+      </span>
+      <button
+        onClick={handleLogout}
+        style={{
+          padding: "0.42rem 1rem",
+          borderRadius: "7px",
+          border: "none",
+          background: "#f03a4b",
+          color: "#fff",
+          fontWeight: 600,
+          fontSize: "1rem",
+          cursor: "pointer",
+          boxShadow: "0 2px 5px #0001",
+          transition: "background 0.15s"
+        }}
+        onMouseOver={e => (e.target.style.background = "#B82637")}
+        onMouseOut={e => (e.target.style.background = "#f03a4b")}
+      >
+        Cerrar sesión
+      </button>
+    </div>
+  </div>
+</nav>
       )}
 
       <Routes>
