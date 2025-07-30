@@ -16,7 +16,7 @@ import MapaRedistribucion from "./MapaRedistribucion";
 import EditarRedistribucion from "./EditarRedistribucion";
 import AdminUsuarios from "./AdminUsuarios";
 
-// ---- USUARIOS INICIALES ----
+// --- Usuarios iniciales ---
 const initialUsuarios = [
   { username: "che.gustrago", password: "FAZO-LOGISTICA", role: "dios" },
   { username: "laguna_verde", password: "delegacion", role: "editor" },
@@ -34,7 +34,7 @@ function App() {
     );
     if (user) {
       setUsuarioActual({ username: user.username, role: user.role });
-      localStorage.setItem("rol", user.role); // Para otros componentes si quieres
+      localStorage.setItem("rol", user.role);
       return true;
     } else {
       return false;
@@ -51,7 +51,7 @@ function App() {
     localStorage.removeItem("rol");
   };
 
-  // --- MENÚ DINÁMICO SEGÚN ROL ---
+  // --- MENÚ ---
   const menuItems = [
     { path: "/", label: "Inicio", roles: ["dios", "editor", "invitado"] },
     { path: "/mapa", label: "Mapa", roles: ["dios", "editor", "invitado"] },
@@ -59,18 +59,19 @@ function App() {
     { path: "/estadisticas-camion", label: "Estadísticas Camión", roles: ["dios", "editor", "invitado"] },
     { path: "/comparacion-semanal", label: "Comparación Semanal", roles: ["dios", "editor", "invitado"] },
     { path: "/rutas-por-camion", label: "Rutas por Camión", roles: ["dios", "editor", "invitado"] },
-    // Solo editores y dios
+    // Editor + dios
     { path: "/rutas-activas", label: "Ruta Activa", roles: ["dios", "editor"] },
     { path: "/registrar-entrega", label: "Registrar Entrega", roles: ["dios", "editor"] },
     { path: "/registrar-nuevo-punto", label: "Registrar Punto", roles: ["dios", "editor"] },
     // Solo dios
-    { path: "/nueva-redistribucion", label: "Editar Redistribución", roles: ["dios"] },
+    { path: "/nueva-redistribucion", label: "Nueva Distribución", roles: ["dios"] },
     { path: "/no-entregadas", label: "No Entregadas", roles: ["dios"] },
     { path: "/mapa-redistribucion", label: "Mapa Redistribución", roles: ["dios"] },
+    { path: "/editar-redistribucion", label: "Editar Redistribución", roles: ["dios"] },
     { path: "/admin-usuarios", label: "Usuarios", roles: ["dios"] }
   ];
 
-  // --- COMPONENTE PARA PROTEGER RUTAS ---
+  // --- RUTA PROTEGIDA ---
   const RutaProtegida = ({ allowedRoles, children }) =>
     allowedRoles.includes(usuarioActual.role) ? children : <Navigate to="/" replace />;
 
@@ -151,6 +152,11 @@ function App() {
                   <MapaRedistribucion usuario={usuarioActual} />
                 </RutaProtegida>
               } />
+              <Route path="/editar-redistribucion" element={
+                <RutaProtegida allowedRoles={["dios"]}>
+                  <EditarRedistribucion usuario={usuarioActual} />
+                </RutaProtegida>
+              } />
               <Route path="/admin-usuarios" element={
                 <RutaProtegida allowedRoles={["dios"]}>
                   <AdminUsuarios
@@ -160,7 +166,7 @@ function App() {
                 </RutaProtegida>
               } />
 
-              {/* DEFAULT: redirigir si intenta algo raro */}
+              {/* DEFAULT: Redirigir si intenta algo raro */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </>
           )}
