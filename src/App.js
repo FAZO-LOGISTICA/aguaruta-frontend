@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, Link } from "react-router-dom";
-import LoginApp from "./LoginApp";
+import { BrowserRouter as Router, Routes, Route, Link, Navigate } from "react-router-dom";
 import Inicio from "./Inicio";
 import Mapa from "./Mapa";
 import Graficos from "./Graficos";
@@ -15,9 +14,28 @@ import NoEntregadas from "./NoEntregadas";
 import MapaRedistribucion from "./MapaRedistribucion";
 import EditarRedistribucion from "./EditarRedistribucion";
 import AdminUsuarios from "./AdminUsuarios";
+import LoginApp from "./LoginApp";
 
-// --- Usuarios iniciales ---
-const initialUsuarios = [
+// Define tus roles y rutas aquí
+const menuItems = [
+  { path: "/", label: "Inicio", roles: ["dios", "editor", "invitado"] },
+  { path: "/mapa", label: "Mapa", roles: ["dios", "editor", "invitado"] },
+  { path: "/graficos", label: "Gráficos", roles: ["dios", "editor", "invitado"] },
+  { path: "/estadisticas-camion", label: "Estadísticas Camión", roles: ["dios", "editor", "invitado"] },
+  { path: "/comparacion-semanal", label: "Comparación Semanal", roles: ["dios", "editor", "invitado"] },
+  { path: "/rutas-por-camion", label: "Rutas por Camión", roles: ["dios", "editor", "invitado"] },
+  { path: "/rutas-activas", label: "Ruta Activa", roles: ["dios", "editor"] },
+  { path: "/registrar-entrega", label: "Registrar Entrega", roles: ["dios", "editor"] },
+  { path: "/registrar-punto", label: "Registrar Punto", roles: ["dios", "editor"] },
+  { path: "/nueva-distribucion", label: "Nueva Distribución", roles: ["dios", "editor"] },
+  { path: "/no-entregadas", label: "No Entregadas", roles: ["dios", "editor"] },
+  { path: "/mapa-redistribucion", label: "Mapa Redistribución", roles: ["dios"] },
+  { path: "/editar-redistribucion", label: "Editar Redistribución", roles: ["dios"] },
+  { path: "/usuarios", label: "Usuarios", roles: ["dios"] }
+];
+
+// Usuarios de ejemplo
+const usuariosEjemplo = [
   { username: "che.gustrago", password: "FAZO-LOGISTICA", role: "dios" },
   { username: "laguna_verde", password: "delegacion", role: "editor" },
   { username: "operaciones", password: "direccion", role: "editor" }
@@ -25,153 +43,110 @@ const initialUsuarios = [
 
 function App() {
   const [usuarioActual, setUsuarioActual] = useState(null);
-  const [usuarios, setUsuarios] = useState(initialUsuarios);
 
-  // --- LOGIN ---
-  const handleLogin = (username, password) => {
-    const user = usuarios.find(
-      u => u.username === username && u.password === password
+  const handleLogin = (username, password, invitado = false) => {
+    if (invitado) {
+      setUsuarioActual({ username: "Invitado", role: "invitado" });
+      return true;
+    }
+    const user = usuariosEjemplo.find(
+      (u) => u.username === username && u.password === password
     );
     if (user) {
-      setUsuarioActual({ username: user.username, role: user.role });
-      localStorage.setItem("rol", user.role);
+      setUsuarioActual(user);
       return true;
-    } else {
-      return false;
     }
+    return false;
   };
 
-  const handleInvitado = () => {
-    setUsuarioActual({ username: "invitado", role: "invitado" });
-    localStorage.setItem("rol", "invitado");
-  };
-
-  const handleLogout = () => {
-    setUsuarioActual(null);
-    localStorage.removeItem("rol");
-  };
-
-  // --- MENÚ ---
-  const menuItems = [
-    { path: "/", label: "Inicio", roles: ["dios", "editor", "invitado"] },
-    { path: "/mapa", label: "Mapa", roles: ["dios", "editor", "invitado"] },
-    { path: "/graficos", label: "Gráficos", roles: ["dios", "editor", "invitado"] },
-    { path: "/estadisticas-camion", label: "Estadísticas Camión", roles: ["dios", "editor", "invitado"] },
-    { path: "/comparacion-semanal", label: "Comparación Semanal", roles: ["dios", "editor", "invitado"] },
-    { path: "/rutas-por-camion", label: "Rutas por Camión", roles: ["dios", "editor", "invitado"] },
-    // Editor + dios
-    { path: "/rutas-activas", label: "Ruta Activa", roles: ["dios", "editor"] },
-    { path: "/registrar-entrega", label: "Registrar Entrega", roles: ["dios", "editor"] },
-    { path: "/registrar-nuevo-punto", label: "Registrar Punto", roles: ["dios", "editor"] },
-    // Solo dios
-    { path: "/nueva-redistribucion", label: "Nueva Distribución", roles: ["dios"] },
-    { path: "/no-entregadas", label: "No Entregadas", roles: ["dios"] },
-    { path: "/mapa-redistribucion", label: "Mapa Redistribución", roles: ["dios"] },
-    { path: "/editar-redistribucion", label: "Editar Redistribución", roles: ["dios"] },
-    { path: "/admin-usuarios", label: "Usuarios", roles: ["dios"] }
-  ];
-
-  // --- RUTA PROTEGIDA ---
-  const RutaProtegida = ({ allowedRoles, children }) =>
-    allowedRoles.includes(usuarioActual.role) ? children : <Navigate to="/" replace />;
+  const handleLogout = () => setUsuarioActual(null);
 
   return (
     <Router>
-      <div>
-        {/* ---------- MENÚ ---------- */}
-        {usuarioActual && (
-          <nav className="navbar">
-            <ul>
-              {menuItems
-                .filter(item => item.roles.includes(usuarioActual.role))
-                .map(item => (
-                  <li key={item.path}>
-                    <Link to={item.path}>{item.label}</Link>
-                  </li>
-                ))}
-              <li style={{ float: "right" }}>
-                Usuario: {usuarioActual.username} ({usuarioActual.role}){" "}
-                <button onClick={handleLogout}>Cerrar sesión</button>
-              </li>
-            </ul>
-          </nav>
+      {usuarioActual && (
+        <nav
+          style={{
+            background: "#173A5E",
+            padding: "0.7rem 2rem",
+            boxShadow: "0 2px 8px #0002",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "2rem"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
+            {menuItems
+              .filter(item => item.roles.includes(usuarioActual.role))
+              .map(item => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  style={{
+                    color: "#fff",
+                    textDecoration: "none",
+                    fontWeight: 500,
+                    fontSize: "1.06rem",
+                    padding: "0.25rem 0.6rem",
+                    borderRadius: "7px",
+                    transition: "background 0.2s",
+                    marginRight: "0.2rem"
+                  }}
+                  onMouseOver={e => (e.target.style.background = "#20446d")}
+                  onMouseOut={e => (e.target.style.background = "none")}
+                >
+                  {item.label}
+                </Link>
+              ))}
+          </div>
+          <div style={{ color: "#fff", fontWeight: 500 }}>
+            Usuario: {usuarioActual.username} ({usuarioActual.role})
+            <button
+              onClick={handleLogout}
+              style={{
+                marginLeft: "1.2rem",
+                padding: "0.25rem 0.85rem",
+                borderRadius: "7px",
+                border: "none",
+                background: "#F03A4B",
+                color: "#fff",
+                fontWeight: 600,
+                cursor: "pointer",
+                boxShadow: "0 2px 5px #0001",
+                transition: "background 0.15s"
+              }}
+              onMouseOver={e => (e.target.style.background = "#B82637")}
+              onMouseOut={e => (e.target.style.background = "#F03A4B")}
+            >
+              Cerrar sesión
+            </button>
+          </div>
+        </nav>
+      )}
+
+      <Routes>
+        {!usuarioActual ? (
+          <Route path="*" element={<LoginApp onLogin={handleLogin} />} />
+        ) : (
+          <>
+            <Route path="/" element={<Inicio />} />
+            <Route path="/mapa" element={<Mapa />} />
+            <Route path="/graficos" element={<Graficos />} />
+            <Route path="/estadisticas-camion" element={<CamionEstadisticas />} />
+            <Route path="/comparacion-semanal" element={<ComparacionSemanal />} />
+            <Route path="/rutas-por-camion" element={<RutasPorCamion />} />
+            <Route path="/rutas-activas" element={<RutasActivas />} />
+            <Route path="/registrar-entrega" element={<RegistrarEntrega />} />
+            <Route path="/registrar-punto" element={<RegistrarNuevoPunto />} />
+            <Route path="/nueva-distribucion" element={<NuevaDistribucion />} />
+            <Route path="/no-entregadas" element={<NoEntregadas />} />
+            <Route path="/mapa-redistribucion" element={<MapaRedistribucion />} />
+            <Route path="/editar-redistribucion" element={<EditarRedistribucion />} />
+            <Route path="/usuarios" element={<AdminUsuarios />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </>
         )}
-
-        {/* ---------- RUTAS ---------- */}
-        <Routes>
-          {!usuarioActual && (
-            <Route
-              path="*"
-              element={
-                <LoginApp
-                  onLogin={handleLogin}
-                  onInvitado={handleInvitado}
-                />
-              }
-            />
-          )}
-          {usuarioActual && (
-            <>
-              <Route path="/" element={<Inicio usuario={usuarioActual} />} />
-              <Route path="/mapa" element={<Mapa usuario={usuarioActual} />} />
-              <Route path="/graficos" element={<Graficos usuario={usuarioActual} />} />
-              <Route path="/estadisticas-camion" element={<CamionEstadisticas usuario={usuarioActual} />} />
-              <Route path="/comparacion-semanal" element={<ComparacionSemanal usuario={usuarioActual} />} />
-              <Route path="/rutas-por-camion" element={<RutasPorCamion usuario={usuarioActual} />} />
-
-              {/* EDITOR + DIOS */}
-              <Route path="/rutas-activas" element={
-                <RutaProtegida allowedRoles={["dios", "editor"]}>
-                  <RutasActivas usuario={usuarioActual} />
-                </RutaProtegida>
-              } />
-              <Route path="/registrar-entrega" element={
-                <RutaProtegida allowedRoles={["dios", "editor"]}>
-                  <RegistrarEntrega usuario={usuarioActual} />
-                </RutaProtegida>
-              } />
-              <Route path="/registrar-nuevo-punto" element={
-                <RutaProtegida allowedRoles={["dios", "editor"]}>
-                  <RegistrarNuevoPunto usuario={usuarioActual} />
-                </RutaProtegida>
-              } />
-
-              {/* SOLO DIOS */}
-              <Route path="/nueva-redistribucion" element={
-                <RutaProtegida allowedRoles={["dios"]}>
-                  <NuevaDistribucion usuario={usuarioActual} />
-                </RutaProtegida>
-              } />
-              <Route path="/no-entregadas" element={
-                <RutaProtegida allowedRoles={["dios"]}>
-                  <NoEntregadas usuario={usuarioActual} />
-                </RutaProtegida>
-              } />
-              <Route path="/mapa-redistribucion" element={
-                <RutaProtegida allowedRoles={["dios"]}>
-                  <MapaRedistribucion usuario={usuarioActual} />
-                </RutaProtegida>
-              } />
-              <Route path="/editar-redistribucion" element={
-                <RutaProtegida allowedRoles={["dios"]}>
-                  <EditarRedistribucion usuario={usuarioActual} />
-                </RutaProtegida>
-              } />
-              <Route path="/admin-usuarios" element={
-                <RutaProtegida allowedRoles={["dios"]}>
-                  <AdminUsuarios
-                    usuarios={usuarios}
-                    setUsuarios={setUsuarios}
-                  />
-                </RutaProtegida>
-              } />
-
-              {/* DEFAULT: Redirigir si intenta algo raro */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </>
-          )}
-        </Routes>
-      </div>
+      </Routes>
     </Router>
   );
 }
