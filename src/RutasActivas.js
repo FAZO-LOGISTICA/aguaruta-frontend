@@ -5,6 +5,8 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import "./App.css";
 
+const API_URL = "https://aguaruta-backend.onrender.com"; // Usa tu backend de Render
+
 const RutasActivas = () => {
   const [datos, setDatos] = useState([]);
   const [filtro, setFiltro] = useState({ camion: "", dia: "", nombre: "", litros: "" });
@@ -12,19 +14,20 @@ const RutasActivas = () => {
   const [cambios, setCambios] = useState({});
 
   useEffect(() => {
-   axios.put("https://aguaruta-backend.onrender.com/editar-ruta", actualizado)
+    axios.get(`${API_URL}/rutas-activas`)
       .then(res => {
         setDatos(Array.isArray(res.data) ? res.data : []);
       })
       .catch(err => console.error("Error al cargar datos:", err));
   }, []);
 
+  // Solo cambia esta función:
   const guardarCambios = (index) => {
     const actualizado = { ...datos[index], ...cambios };
     const confirmar = window.confirm("¿Guardar cambios en este registro?");
     if (!confirmar) return;
 
-    axios.put("http://localhost:8000/actualizar-ruta", actualizado)
+    axios.put(`${API_URL}/editar-ruta`, actualizado)
       .then(() => {
         const nuevosDatos = [...datos];
         nuevosDatos[index] = actualizado;
@@ -63,12 +66,10 @@ const RutasActivas = () => {
   return (
     <div className="main-container fade-in">
       <h2 className="titulo">Rutas Activas por Camión</h2>
-
       <div className="botones-exportar">
         <button onClick={exportarExcel}>📊 Exportar Excel</button>
         <button onClick={exportarPDF}>🧾 Exportar PDF</button>
       </div>
-
       <table className="tabla">
         <thead>
           <tr>
@@ -123,4 +124,3 @@ const RutasActivas = () => {
 };
 
 export default RutasActivas;
-
