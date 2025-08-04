@@ -18,7 +18,7 @@ function Mapa() {
   const [puntos, setPuntos] = useState([]);
 
   useEffect(() => {
-    axios.get("http://localhost:8000/rutas-activas")
+    axios.get("https://aguaruta-backend.onrender.com/rutas-activas")
       .then((res) => {
         setPuntos(Array.isArray(res.data) ? res.data : []);
       })
@@ -57,3 +57,4 @@ function Mapa() {
 }
 
 export default Mapa;
+
