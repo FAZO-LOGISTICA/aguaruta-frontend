@@ -12,7 +12,7 @@ const RutasActivas = () => {
   const [cambios, setCambios] = useState({});
 
   useEffect(() => {
-    axios.get("http://localhost:8000/rutas-activas")
+   axios.put("https://aguaruta-backend.onrender.com/editar-ruta", actualizado)
       .then(res => {
         setDatos(Array.isArray(res.data) ? res.data : []);
       })
@@ -123,3 +123,4 @@ const RutasActivas = () => {
 };
 
 export default RutasActivas;
+
