@@ -50,7 +50,7 @@ const RutasActivas = () => {
     doc.autoTable({
       head: [["Camión", "Nombre", "Día", "Litros", "Teléfono", "Latitud", "Longitud"]],
       body: datos.map(d => [
-        d.camion, d.nombre, d.dia_asignado, d.litros, d.telefono, d.latitud, d.longitud
+        d.camion, d.nombre, d.dia, d.litros, d.telefono, d.latitud, d.longitud
       ]),
     });
     doc.save("rutas_activas.pdf");
@@ -58,7 +58,7 @@ const RutasActivas = () => {
 
   const datosFiltrados = datos.filter((d) =>
     String(d.camion || "").toLowerCase().includes(filtro.camion.toLowerCase()) &&
-    String(d.dia_asignado || "").toLowerCase().includes(filtro.dia.toLowerCase()) &&
+    String(d.dia || "").toLowerCase().includes(filtro.dia.toLowerCase()) &&
     String(d.nombre || "").toLowerCase().includes(filtro.nombre.toLowerCase()) &&
     String(d.litros || "").includes(filtro.litros)
   );
@@ -100,7 +100,7 @@ const RutasActivas = () => {
             <tr key={i}>
               <td>{editando === i ? <input value={cambios.camion ?? d.camion} onChange={(e) => setCambios({ ...cambios, camion: e.target.value })} /> : d.camion}</td>
               <td>{editando === i ? <input value={cambios.nombre ?? d.nombre} onChange={(e) => setCambios({ ...cambios, nombre: e.target.value })} /> : d.nombre}</td>
-              <td>{editando === i ? <input value={cambios.dia_asignado ?? d.dia_asignado} onChange={(e) => setCambios({ ...cambios, dia_asignado: e.target.value })} /> : d.dia_asignado}</td>
+              <td>{editando === i ? <input value={cambios.dia ?? d.dia} onChange={(e) => setCambios({ ...cambios, dia: e.target.value })} /> : d.dia}</td>
               <td>{editando === i ? <input value={cambios.litros ?? d.litros} onChange={(e) => setCambios({ ...cambios, litros: e.target.value })} /> : d.litros}</td>
               <td>{editando === i ? <input value={cambios.telefono ?? d.telefono} onChange={(e) => setCambios({ ...cambios, telefono: e.target.value })} /> : d.telefono}</td>
               <td>{editando === i ? <input value={cambios.latitud ?? d.latitud} onChange={(e) => setCambios({ ...cambios, latitud: e.target.value })} /> : d.latitud}</td>
