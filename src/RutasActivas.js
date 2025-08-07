@@ -1,15 +1,13 @@
-// src/pages/RutasActivas.js
+// src/RutasActivas.js
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import "./App.css";
+import { API_URL } from "./config"; // <-- usa la URL centralizada
 
-// URL de tu backend en Render
-const API_URL = "https://aguaruta.onrender.com";
-
-// Función para normalizar texto (quita tildes y pone todo en minúscula)
+// normaliza texto (quita acentos y pasa a minúsculas)
 const normalizar = (str) =>
   String(str || "")
     .normalize("NFD")
@@ -78,9 +76,12 @@ const RutasActivas = () => {
     if (lonNum !== (row.longitud ?? null)) diff.longitud = lonNum;
 
     const payload = { id: row.id, ...diff };
+    console.log("PUT /editar-ruta payload:", payload);
 
     try {
-      await axios.put(`${API_URL}/editar-ruta`, payload);
+      const r = await axios.put(`${API_URL}/editar-ruta`, payload);
+      console.log("Respuesta backend:", r.data);
+
       setDatos((prev) =>
         prev.map((r) => (r.id === row.id ? { ...r, ...diff } : r))
       );
