@@ -4,10 +4,10 @@ import axios from "axios";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import "./Aplicación.css"; // si usas App.css cámbialo
-import { API_URL } from "./config"; // <- está en la misma carpeta
+import "./Aplicación.css";
+import { API_URL } from "./config"; // MISMA CARPETA
 
-// normaliza texto (quita acentos y minúsculas)
+// normaliza texto (tildes y mayúsculas)
 const normalizar = (str) =>
   String(str || "")
     .normalize("NFD")
@@ -19,12 +19,7 @@ const RutasActivas = () => {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
-  const [filtro, setFiltro] = useState({
-    camion: "",
-    dia: "",
-    nombre: "",
-    litros: "",
-  });
+  const [filtro, setFiltro] = useState({ camion: "", dia: "", nombre: "", litros: "" });
   const [editandoId, setEditandoId] = useState(null);
   const [cambios, setCambios] = useState({});
 
@@ -73,6 +68,7 @@ const RutasActivas = () => {
     const diff = {};
     if (cambios.camion !== row.camion) diff.camion = cambios.camion;
     if (cambios.dia !== row.dia) diff.dia = cambios.dia;
+    if (cambios.nombre !== row.nombre) diff.nombre = cambios.nombre; // ahora se envía
 
     const litrosNum = toNumberOrNull(cambios.litros);
     if (litrosNum !== (row.litros ?? null)) diff.litros = litrosNum;
@@ -91,6 +87,7 @@ const RutasActivas = () => {
     try {
       const r = await axios.put(`${API_URL}/editar-ruta`, payload);
       console.log("Respuesta backend:", r.data);
+
       setDatos((prev) => prev.map((r0) => (r0.id === row.id ? { ...r0, ...diff } : r0)));
       setEditandoId(null);
       setCambios({});
@@ -125,12 +122,11 @@ const RutasActivas = () => {
   };
 
   const datosFiltrados = useMemo(() => {
-    return datos.filter(
-      (d) =>
-        normalizar(d.camion).includes(normalizar(filtro.camion)) &&
-        normalizar(d.dia).includes(normalizar(filtro.dia)) &&
-        normalizar(d.nombre).includes(normalizar(filtro.nombre)) &&
-        String(d.litros ?? "").includes(filtro.litros)
+    return datos.filter((d) =>
+      normalizar(d.camion).includes(normalizar(filtro.camion)) &&
+      normalizar(d.dia).includes(normalizar(filtro.dia)) &&
+      normalizar(d.nombre).includes(normalizar(filtro.nombre)) &&
+      String(d.litros ?? "").includes(filtro.litros)
     );
   }, [datos, filtro]);
 
