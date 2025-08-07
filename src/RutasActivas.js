@@ -62,13 +62,12 @@ const RutasActivas = () => {
   };
 
   const guardarCambios = async (row) => {
-    const confirmar = window.confirm("¿Guardar cambios en este registro?");
-    if (!confirmar) return;
+    if (!window.confirm("¿Guardar cambios en este registro?")) return;
 
     const diff = {};
     if (cambios.camion !== row.camion) diff.camion = cambios.camion;
     if (cambios.dia !== row.dia) diff.dia = cambios.dia;
-    if (cambios.nombre !== row.nombre) diff.nombre = cambios.nombre; // ahora se envía
+    if (cambios.nombre !== row.nombre) diff.nombre = cambios.nombre;  // ← enviar nombre
 
     const litrosNum = toNumberOrNull(cambios.litros);
     if (litrosNum !== (row.litros ?? null)) diff.litros = litrosNum;
@@ -87,7 +86,6 @@ const RutasActivas = () => {
     try {
       const r = await axios.put(`${API_URL}/editar-ruta`, payload);
       console.log("Respuesta backend:", r.data);
-
       setDatos((prev) => prev.map((r0) => (r0.id === row.id ? { ...r0, ...diff } : r0)));
       setEditandoId(null);
       setCambios({});
