@@ -1,13 +1,13 @@
-// src/RutasActivas.js
+// src/origen/RutasActivas.js
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import "./App.css";
-import { API_URL } from "./config"; // <-- usa la URL centralizada
+import "./Aplicación.css"; // si usas App.css cámbialo
+import { API_URL } from "./config"; // <- está en la misma carpeta
 
-// normaliza texto (quita acentos y pasa a minúsculas)
+// normaliza texto (quita acentos y minúsculas)
 const normalizar = (str) =>
   String(str || "")
     .normalize("NFD")
@@ -19,7 +19,12 @@ const RutasActivas = () => {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
-  const [filtro, setFiltro] = useState({ camion: "", dia: "", nombre: "", litros: "" });
+  const [filtro, setFiltro] = useState({
+    camion: "",
+    dia: "",
+    nombre: "",
+    litros: "",
+  });
   const [editandoId, setEditandoId] = useState(null);
   const [cambios, setCambios] = useState({});
 
@@ -38,6 +43,7 @@ const RutasActivas = () => {
   };
 
   useEffect(() => {
+    console.log("API_URL =", API_URL);
     cargar();
   }, []);
 
@@ -67,11 +73,15 @@ const RutasActivas = () => {
     const diff = {};
     if (cambios.camion !== row.camion) diff.camion = cambios.camion;
     if (cambios.dia !== row.dia) diff.dia = cambios.dia;
+
     const litrosNum = toNumberOrNull(cambios.litros);
     if (litrosNum !== (row.litros ?? null)) diff.litros = litrosNum;
+
     if (cambios.telefono !== row.telefono) diff.telefono = cambios.telefono;
+
     const latNum = toNumberOrNull(cambios.latitud);
     if (latNum !== (row.latitud ?? null)) diff.latitud = latNum;
+
     const lonNum = toNumberOrNull(cambios.longitud);
     if (lonNum !== (row.longitud ?? null)) diff.longitud = lonNum;
 
@@ -81,10 +91,7 @@ const RutasActivas = () => {
     try {
       const r = await axios.put(`${API_URL}/editar-ruta`, payload);
       console.log("Respuesta backend:", r.data);
-
-      setDatos((prev) =>
-        prev.map((r) => (r.id === row.id ? { ...r, ...diff } : r))
-      );
+      setDatos((prev) => prev.map((r0) => (r0.id === row.id ? { ...r0, ...diff } : r0)));
       setEditandoId(null);
       setCambios({});
     } catch (e) {
@@ -118,11 +125,12 @@ const RutasActivas = () => {
   };
 
   const datosFiltrados = useMemo(() => {
-    return datos.filter((d) =>
-      normalizar(d.camion).includes(normalizar(filtro.camion)) &&
-      normalizar(d.dia).includes(normalizar(filtro.dia)) &&
-      normalizar(d.nombre).includes(normalizar(filtro.nombre)) &&
-      String(d.litros ?? "").includes(filtro.litros)
+    return datos.filter(
+      (d) =>
+        normalizar(d.camion).includes(normalizar(filtro.camion)) &&
+        normalizar(d.dia).includes(normalizar(filtro.dia)) &&
+        normalizar(d.nombre).includes(normalizar(filtro.nombre)) &&
+        String(d.litros ?? "").includes(filtro.litros)
     );
   }, [datos, filtro]);
 
