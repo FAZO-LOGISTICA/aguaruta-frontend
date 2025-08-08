@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
+const API_URL = "https://tu-backend.render.com"; // Cambia por tu URL real
+
 const RegistrarEntrega = () => {
-  const [baseUrl, setBaseUrl] = useState('');
   const [puntos, setPuntos] = useState([]);
   const [nombre, setNombre] = useState('');
   const [litros, setLitros] = useState('');
@@ -12,33 +13,15 @@ const RegistrarEntrega = () => {
   const [mensaje, setMensaje] = useState('');
 
   useEffect(() => {
-    const init = async () => {
-      let url = process.env.REACT_APP_API_URL;
-      if (!url) {
-        try {
-          const res = await fetch('/url.txt', { cache: 'no-store' });
-          if (res.ok) url = (await res.text()).trim();
-        } catch {
-          setMensaje('❌ No se pudo obtener la URL del backend.');
-          return;
-        }
-      }
-
-      setBaseUrl(url);
-
-      try {
-        const r = await axios.get(`${url}/rutas-activas`);
-        setPuntos(r.data || []);
-      } catch (err) {
+    axios.get(`${API_URL}/rutas-activas`)
+      .then(res => setPuntos(res.data))
+      .catch(err => {
         console.error('Error al cargar puntos:', err);
-        setMensaje('❌ No se pudo cargar la lista de puntos.');
-      }
-    };
-
-    init();
+        setMensaje('❌ No se pudieron cargar los beneficiarios.');
+      });
   }, []);
 
-  const registrarEntrega = async () => {
+  const registrarEntrega = () => {
     if (!nombre || !litros || !camion || !fecha) {
       setMensaje('⚠️ Todos los campos son obligatorios.');
       return;
@@ -59,14 +42,15 @@ const RegistrarEntrega = () => {
       estado_entrega: 1,
     };
 
-    try {
-      await axios.post(`${baseUrl}/registrar-entrega`, nuevaEntrega);
-      setMensaje('✅ Entrega registrada correctamente.');
-      setLitros('');
-    } catch (err) {
-      console.error('Error al registrar entrega:', err);
-      setMensaje('❌ Error al registrar entrega.');
-    }
+    axios.post(`${API_URL}/registrar-entrega`, nuevaEntrega)
+      .then(() => {
+        setMensaje('✅ Entrega registrada correctamente.');
+        setLitros('');
+      })
+      .catch(err => {
+        console.error('Error al registrar entrega:', err);
+        setMensaje('❌ Error al registrar entrega.');
+      });
   };
 
   const camiones = ['A1', 'A2', 'A3', 'A4', 'A5', 'M1', 'M2'];
