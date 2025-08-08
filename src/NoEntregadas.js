@@ -5,13 +5,15 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import './App.css';
 
+const API_URL = "https://tu-backend.render.com"; // ← Cambia esta URL por tu backend real
+
 const NoEntregadas = () => {
   const [datos, setDatos] = useState([]);
   const [camion, setCamion] = useState('Todos');
   const [dia, setDia] = useState('Todos');
 
   useEffect(() => {
-    axios.get('http://localhost:8000/rutas-activas')
+    axios.get(`${API_URL}/rutas-activas`)
       .then(res => setDatos(res.data))
       .catch(err => console.error('Error al cargar datos:', err));
   }, []);
