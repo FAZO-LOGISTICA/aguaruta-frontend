@@ -3,9 +3,8 @@ import axios from 'axios';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import API_URL from '../config'; // ✅ Usamos URL centralizada
 import './App.css';
-
-const API_URL = "https://tu-backend.render.com"; // ← Cambia esta URL por tu backend real
 
 const NoEntregadas = () => {
   const [datos, setDatos] = useState([]);
@@ -20,12 +19,12 @@ const NoEntregadas = () => {
 
   const filtradas = datos.filter(r =>
     [0, 2, 3].includes(r.estado_entrega) &&
-    (camion === 'Todos' || r.id_camión === camion) &&
+    (camion === 'Todos' || r.camion === camion) &&
     (dia === 'Todos' || r.dia === dia)
   );
 
-  const camiones = [...new Set(datos.map(d => d.id_camión).filter(c => c && c !== 0))];
-  const dias = [...new Set(datos.map(d => d.dia).filter(d => d))];
+  const camiones = [...new Set(datos.map(d => d.camion).filter(Boolean))];
+  const dias = [...new Set(datos.map(d => d.dia).filter(Boolean))];
 
   const exportarExcel = () => {
     const ws = XLSX.utils.json_to_sheet(filtradas);
@@ -38,16 +37,17 @@ const NoEntregadas = () => {
     const doc = new jsPDF();
     doc.text('Entregas No Realizadas', 14, 15);
     const tabla = filtradas.map(r => [
-      r.id_camión,
+      r.camion,
       r.dia,
-      r["nombre_(jefe_de_hogar)"],
+      r.nombre,
       r.estado_entrega,
       r.motivo || '',
-      r.foto || ''
+      r.foto_url || ''
     ]);
     doc.autoTable({
       head: [['Camión', 'Día', 'Nombre', 'Estado', 'Motivo', 'Foto']],
       body: tabla,
+      startY: 20,
     });
     doc.save('no_entregadas.pdf');
   };
@@ -81,12 +81,16 @@ const NoEntregadas = () => {
         <tbody>
           {filtradas.map((r, i) => (
             <tr key={i}>
-              <td>{r.id_camión}</td>
+              <td>{r.camion}</td>
               <td>{r.dia}</td>
-              <td>{r["nombre_(jefe_de_hogar)"]}</td>
+              <td>{r.nombre}</td>
               <td>{r.estado_entrega}</td>
               <td>{r.motivo || '—'}</td>
-              <td>{r.foto ? <a href={r.foto} target="_blank" rel="noopener noreferrer">Ver foto</a> : '—'}</td>
+              <td>
+                {r.foto_url
+                  ? <a href={`${API_URL}/${r.foto_url}`} target="_blank" rel="noopener noreferrer">Ver foto</a>
+                  : '—'}
+              </td>
             </tr>
           ))}
         </tbody>
