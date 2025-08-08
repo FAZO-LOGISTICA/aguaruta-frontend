@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './App.css';
 
+const API_URL = "https://tu-backend.render.com"; // Cambia por tu URL real
+
 const RegistrarNuevoPunto = () => {
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -25,10 +27,10 @@ const RegistrarNuevoPunto = () => {
       sector,
       latitud: parseFloat(latitud),
       longitud: parseFloat(longitud),
-      destino // se envía al backend como 'actual' o 'septiembre'
+      destino
     };
 
-    axios.post('http://localhost:8000/registrar-nuevo-punto', nuevoPunto)
+    axios.post(`${API_URL}/registrar-nuevo-punto`, nuevoPunto)
       .then(res => {
         if (res.data && res.data.camion_asignado) {
           setMensaje(`✅ Punto registrado y asignado a ${res.data.camion_asignado} (${destino === 'actual' ? 'ruta actual' : 'septiembre'})`);
