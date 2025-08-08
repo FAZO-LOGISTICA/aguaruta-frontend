@@ -1,89 +1,131 @@
-import React, { useEffect, useState } from 'react';
+// src/ComparacionSemanal.js  (si está en /src/pages cambia el import a ../config)
+import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import API_URL from './config'; // <-- ajusta a "../config" si este archivo está en /src/pages
 import './App.css';
+
+const DIAS_ORDEN = ["LUNES","MARTES","MIERCOLES","MIÉRCOLES","JUEVES","VIERNES","SABADO","SÁBADO","DOMINGO"];
+const normalizarDia = (d) => String(d || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 const ComparacionSemanal = () => {
   const [datos, setDatos] = useState([]);
   const [camion, setCamion] = useState('Todos');
 
-  // --- NUEVO: Obtener el rol desde localStorage ---
+  // Rol (para exportaciones)
   const rol = localStorage.getItem("rol");
 
   useEffect(() => {
-    axios.get('http://localhost:8000/rutas-activas')
-      .then(res => setDatos(res.data))
+    axios.get(`${API_URL}/rutas-activas`)
+      .then(res => setDatos(Array.isArray(res.data) ? res.data : []))
       .catch(err => console.error('Error al cargar datos:', err));
   }, []);
 
-  const obtenerSemana = (fecha) => {
-    const d = new Date(fecha);
-    const oneJan = new Date(d.getFullYear(), 0, 1);
-    return Math.ceil((((d - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
-  };
+  // Filtrado por camión
+  const datosFiltrados = useMemo(() => {
+    if (camion === 'Todos') return datos;
+    return datos.filter(r => r.camion === camion);
+  }, [datos, camion]);
 
-  const datosFiltrados = datos.filter(r => r.estado_entrega === 1 && (!camion || camion === 'Todos' || r.id_camión === camion));
+  // Agrupar por día con suma de litros y conteo de entregas
+  const resumen = useMemo(() => {
+    const acc = {};
+    for (const r of datosFiltrados) {
+      const dnorm = normalizarDia(r.dia);
+      const diaKey = DIAS_ORDEN.includes(dnorm) ? dnorm : (dnorm || "SIN_DIA");
+      if (!acc[diaKey]) acc[diaKey] = { dia: diaKey, total_entregas: 0, total_litros: 0 };
+      acc[diaKey].total_entregas += 1;
+      acc[diaKey].total_litros += Number(r.litros || 0);
+    }
+    // ordenar según DIAS_ORDEN; lo desconocido queda al final
+    const orden = Object.values(acc).sort((a, b) => {
+      const ia = DIAS_ORDEN.indexOf(a.dia);
+      const ib = DIAS_ORDEN.indexOf(b.dia);
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
+    // normaliza acentos para la vista
+    return orden.map(x => ({
+      ...x,
+      dia: x.dia.replace("MIERCOLES", "MIÉRCOLES").replace("SABADO","SÁBADO")
+    }));
+  }, [datosFiltrados]);
 
-  const agrupados = {};
-  datosFiltrados.forEach(r => {
-    if (!r.fecha) return;
-    const semana = obtenerSemana(r.fecha);
-    const clave = `Semana ${semana}`;
-    if (!agrupados[clave]) agrupados[clave] = 0;
-    agrupados[clave] += r.litros_de_entrega || 0;
-  });
+  // Listado de camiones
+  const camiones = useMemo(() => {
+    return [...new Set(datos.map(d => d.camion).filter(Boolean))].sort();
+  }, [datos]);
 
-  const data = Object.entries(agrupados).map(([semana, litros]) => ({ semana, litros }));
-
+  // Exportar
   const exportarExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(data);
+    const ws = XLSX.utils.json_to_sheet(resumen);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Comparación Semanal');
+    XLSX.utils.book_append_sheet(wb, ws, 'Comparacion_Semanal');
     XLSX.writeFile(wb, 'comparacion_semanal.xlsx');
   };
 
   const exportarPDF = () => {
     const doc = new jsPDF();
-    doc.text('Comparación Semanal de Litros Entregados', 14, 15);
-    const tabla = data.map(r => [r.semana, r.litros]);
-    doc.autoTable({ head: [['Semana', 'Litros']], body: tabla });
+    doc.text('Comparación por Día (Litros Entregados)', 14, 15);
+    const tabla = resumen.map(r => [r.dia, r.total_entregas, r.total_litros]);
+    doc.autoTable({
+      head: [['Día', 'Total Entregas', 'Total Litros']],
+      body: tabla,
+      startY: 20
+    });
     doc.save('comparacion_semanal.pdf');
   };
 
-  const camiones = [...new Set(datos.map(d => d.id_camión).filter(c => c && c !== 0))];
-
   return (
     <div className="main-container fade-in">
-      <h2 className="titulo">Comparación Semanal por Camión</h2>
+      <h2 className="titulo">Comparación por Día</h2>
 
       <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '1rem' }}>
         <select value={camion} onChange={(e) => setCamion(e.target.value)}>
           <option value="Todos">Todos los camiones</option>
-          {camiones.map((c, i) => <option key={i} value={c}>{c}</option>)}
+          {camiones.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
+        {rol !== "invitado" && (
+          <div className="botones-exportar">
+            <button onClick={exportarExcel}>Exportar Excel</button>
+            <button onClick={exportarPDF}>Exportar PDF</button>
+          </div>
+        )}
       </div>
 
       <ResponsiveContainer width="100%" height={350}>
-        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <BarChart data={resumen} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="semana" />
+          <XAxis dataKey="dia" />
           <YAxis />
           <Tooltip />
           <Legend />
-          <Bar dataKey="litros" fill="#2563eb" name="Litros Entregados" />
+          <Bar dataKey="total_litros" fill="#2563eb" name="Litros Entregados" />
         </BarChart>
       </ResponsiveContainer>
 
-      {/* --- SOLO PARA USUARIOS QUE NO SON INVITADO --- */}
-      {rol !== "invitado" && (
-        <div className="botones-exportar">
-          <button onClick={exportarExcel}>Exportar Excel</button>
-          <button onClick={exportarPDF}>Exportar PDF</button>
-        </div>
-      )}
+      <table className="tabla" style={{ marginTop: 16 }}>
+        <thead>
+          <tr>
+            <th>Día</th>
+            <th>Total Entregas</th>
+            <th>Total Litros</th>
+          </tr>
+        </thead>
+        <tbody>
+          {resumen.map((r) => (
+            <tr key={r.dia}>
+              <td>{r.dia}</td>
+              <td>{r.total_entregas}</td>
+              <td>{r.total_litros}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };
