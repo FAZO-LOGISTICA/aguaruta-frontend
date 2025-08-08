@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import axios from "axios";
 import "./App.css";
 
+const API_URL = "https://tu-backend.render.com"; // Reemplaza por tu backend real
+
 const NuevaDistribucion = () => {
   const [estado, setEstado] = useState(null);
   const [cargando, setCargando] = useState(false);
@@ -14,7 +16,7 @@ const NuevaDistribucion = () => {
 
     setCargando(true);
     try {
-      const res = await axios.post("http://localhost:8000/activar-redistribucion");
+      const res = await axios.post(`${API_URL}/activar-redistribucion`);
       setEstado({ tipo: "exito", mensaje: res.data.mensaje });
     } catch (error) {
       setEstado({
