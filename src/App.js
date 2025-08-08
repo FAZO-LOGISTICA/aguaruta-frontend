@@ -15,15 +15,14 @@ import MapaRedistribucion from "./MapaRedistribucion";
 import EditarRedistribucion from "./EditarRedistribucion";
 import AdminUsuarios from "./AdminUsuarios";
 import LoginApp from "./LoginApp";
+import EntregasApp from "./EntregasApp"; // ✅ NUEVA IMPORTACIÓN
 
-// Tus usuarios base
 const usuariosEjemplo = [
   { username: "che.gustrago", password: "FAZO-LOGISTICA", role: "dios" },
   { username: "laguna_verde", password: "delegacion", role: "editor" },
   { username: "operaciones", password: "direccion", role: "editor" }
 ];
 
-// Define el menú para cada tipo de usuario
 const menuItems = [
   { path: "/", label: "Inicio", roles: ["dios", "editor", "invitado"] },
   { path: "/mapa", label: "Mapa", roles: ["dios", "editor", "invitado"] },
@@ -34,12 +33,11 @@ const menuItems = [
   { path: "/rutas-activas", label: "Ruta Activa", roles: ["dios", "editor"] },
   { path: "/registrar-entrega", label: "Registrar Entrega", roles: ["dios", "editor"] },
   { path: "/registrar-punto", label: "Registrar Punto", roles: ["dios", "editor"] },
-  // Nueva Distribución SOLO DIOS
   { path: "/nueva-distribucion", label: "Nueva Distribución", roles: ["dios"] },
   { path: "/no-entregadas", label: "No Entregadas", roles: ["dios", "editor"] },
+  { path: "/entregas-app", label: "Entregas App", roles: ["dios", "editor"] }, // ✅ NUEVO
   { path: "/mapa-redistribucion", label: "Mapa Redistribución", roles: ["dios"] },
   { path: "/editar-redistribucion", label: "Editar Redistribución", roles: ["dios"] },
-  // Panel Usuarios solo DIOS
   { path: "/usuarios", label: "Usuarios", roles: ["dios"] }
 ];
 
@@ -47,7 +45,6 @@ function App() {
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [usuarios, setUsuarios] = useState(usuariosEjemplo);
 
-  // LOGIN / LOGOUT
   const handleLogin = (username, password, invitado = false) => {
     if (invitado) {
       setUsuarioActual({ username: "Invitado", role: "invitado" });
@@ -62,16 +59,20 @@ function App() {
     }
     return false;
   };
+
   const handleLogout = () => setUsuarioActual(null);
 
-  // --- USUARIOS (solo dios)
   const agregarUsuario = (nuevo) => {
     if (usuarios.find(u => u.username === nuevo.username)) return alert("Ese usuario ya existe.");
     setUsuarios([...usuarios, nuevo]);
   };
+
   const eliminarUsuario = (username) => {
-    if (window.confirm("¿Eliminar usuario?")) setUsuarios(usuarios.filter(u => u.username !== username));
+    if (window.confirm("¿Eliminar usuario?")) {
+      setUsuarios(usuarios.filter(u => u.username !== username));
+    }
   };
+
   const cambiarContraseña = (username, password, role) => {
     setUsuarios(usuarios.map(u =>
       u.username === username
@@ -83,27 +84,23 @@ function App() {
   return (
     <Router>
       {usuarioActual && (
-        <nav
-          style={{
-            background: "#153a5e",
-            boxShadow: "0 2px 8px #0002",
-            padding: 0,
-            position: "sticky",
-            top: 0,
-            zIndex: 100,
-          }}
-        >
-          <div
-            style={{
-              maxWidth: 1400,
-              margin: "0 auto",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "0.2rem 2rem",
-              flexWrap: "wrap"
-            }}
-          >
+        <nav style={{
+          background: "#153a5e",
+          boxShadow: "0 2px 8px #0002",
+          padding: 0,
+          position: "sticky",
+          top: 0,
+          zIndex: 100,
+        }}>
+          <div style={{
+            maxWidth: 1400,
+            margin: "0 auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0.2rem 2rem",
+            flexWrap: "wrap"
+          }}>
             <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
               {menuItems
                 .filter((item) => item.roles.includes(usuarioActual.role))
@@ -133,13 +130,11 @@ function App() {
                   </Link>
                 ))}
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "1.4rem"
-              }}
-            >
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "1.4rem"
+            }}>
               <span style={{ color: "#fff", fontWeight: 400 }}>
                 Usuario: <b>{usuarioActual.username}</b> ({usuarioActual.role})
               </span>
@@ -188,6 +183,7 @@ function App() {
             <Route path="/registrar-punto" element={<RegistrarNuevoPunto />} />
             <Route path="/nueva-distribucion" element={<NuevaDistribucion />} />
             <Route path="/no-entregadas" element={<NoEntregadas />} />
+            <Route path="/entregas-app" element={<EntregasApp />} /> {/* ✅ NUEVA RUTA */}
             <Route path="/mapa-redistribucion" element={<MapaRedistribucion />} />
             <Route path="/editar-redistribucion" element={<EditarRedistribucion />} />
             <Route path="/usuarios" element={
