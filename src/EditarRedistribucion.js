@@ -1,8 +1,8 @@
-// src/EditarRedistribucion.js
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import './App.css';
+import API_URL from './config';
 
 function EditarRedistribucion() {
   const [puntos, setPuntos] = useState([]);
@@ -12,9 +12,9 @@ function EditarRedistribucion() {
   const [diaFiltro, setDiaFiltro] = useState('');
 
   useEffect(() => {
-    axios.get('/data/RutasMapaFinal_con_telefono.json')
+    axios.get(`${API_URL}/redistribucion`)
       .then(res => setPuntos(res.data))
-      .catch(err => console.error('Error cargando datos:', err));
+      .catch(err => console.error('Error cargando redistribución:', err));
   }, []);
 
   const handleEdit = (index) => {
@@ -32,12 +32,9 @@ function EditarRedistribucion() {
     setPuntos(nuevosPuntos);
     setEditIndex(null);
 
-    // Guardar en el backend (simulación con fetch POST a archivo json en public)
-    fetch('/guardar-redistribucion', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(nuevosPuntos)
-    }).catch(err => console.error('Error al guardar redistribución:', err));
+    axios.put(`${API_URL}/redistribucion`, nuevosPuntos)
+      .then(() => alert('✅ Cambios guardados correctamente'))
+      .catch(err => console.error('Error al guardar redistribución:', err));
   };
 
   const handleChange = (e, campo) => {
@@ -59,8 +56,8 @@ function EditarRedistribucion() {
   });
 
   return (
-    <div style={{ padding: '1rem' }}>
-      <h2 style={{ textAlign: 'center' }}>Editar Nueva Redistribución</h2>
+    <div className="main-container fade-in">
+      <h2 className="titulo">Editar Nueva Redistribución</h2>
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
         <select value={camionFiltro} onChange={e => setCamionFiltro(e.target.value)}>
           <option value=''>Todos los camiones</option>
@@ -70,34 +67,34 @@ function EditarRedistribucion() {
           <option value=''>Todos los días</option>
           {dias.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
-        <button onClick={exportarExcel}>Exportar a Excel</button>
+        <button onClick={exportarExcel}>📊 Exportar Excel</button>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', border: '1px solid #ccc', fontSize: '14px' }}>
-          <thead style={{ backgroundColor: '#f2f2f2' }}>
+        <table className="tabla">
+          <thead>
             <tr>
-              <th style={{ border: '1px solid #ccc', padding: '8px' }}>Nombre</th>
-              <th style={{ border: '1px solid #ccc', padding: '8px' }}>Teléfono</th>
-              <th style={{ border: '1px solid #ccc', padding: '8px' }}>Litros</th>
-              <th style={{ border: '1px solid #ccc', padding: '8px' }}>Camión</th>
-              <th style={{ border: '1px solid #ccc', padding: '8px' }}>Día</th>
-              <th style={{ border: '1px solid #ccc', padding: '8px' }}>Latitud</th>
-              <th style={{ border: '1px solid #ccc', padding: '8px' }}>Longitud</th>
-              <th style={{ border: '1px solid #ccc', padding: '8px' }}>Acciones</th>
+              <th>Nombre</th>
+              <th>Teléfono</th>
+              <th>Litros</th>
+              <th>Camión</th>
+              <th>Día</th>
+              <th>Latitud</th>
+              <th>Longitud</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {puntosFiltrados.map((p, index) => (
               <tr key={index}>
-                <td style={{ border: '1px solid #ccc', padding: '6px' }}>{editIndex === index ? <input value={editData.nombre} onChange={e => handleChange(e, 'nombre')} /> : p.nombre}</td>
-                <td style={{ border: '1px solid #ccc', padding: '6px' }}>{editIndex === index ? <input value={editData.telefono} onChange={e => handleChange(e, 'telefono')} /> : p.telefono}</td>
-                <td style={{ border: '1px solid #ccc', padding: '6px' }}>{editIndex === index ? <input value={editData.litros} onChange={e => handleChange(e, 'litros')} /> : p.litros}</td>
-                <td style={{ border: '1px solid #ccc', padding: '6px' }}>{editIndex === index ? <input value={editData.camion} onChange={e => handleChange(e, 'camion')} /> : p.camion}</td>
-                <td style={{ border: '1px solid #ccc', padding: '6px' }}>{editIndex === index ? <input value={editData.dia_asignado} onChange={e => handleChange(e, 'dia_asignado')} /> : p.dia_asignado}</td>
-                <td style={{ border: '1px solid #ccc', padding: '6px' }}>{editIndex === index ? <input value={editData.latitud} onChange={e => handleChange(e, 'latitud')} /> : p.latitud}</td>
-                <td style={{ border: '1px solid #ccc', padding: '6px' }}>{editIndex === index ? <input value={editData.longitud} onChange={e => handleChange(e, 'longitud')} /> : p.longitud}</td>
-                <td style={{ border: '1px solid #ccc', padding: '6px' }}>
+                <td>{editIndex === index ? <input value={editData.nombre} onChange={e => handleChange(e, 'nombre')} /> : p.nombre}</td>
+                <td>{editIndex === index ? <input value={editData.telefono} onChange={e => handleChange(e, 'telefono')} /> : p.telefono}</td>
+                <td>{editIndex === index ? <input value={editData.litros} onChange={e => handleChange(e, 'litros')} /> : p.litros}</td>
+                <td>{editIndex === index ? <input value={editData.camion} onChange={e => handleChange(e, 'camion')} /> : p.camion}</td>
+                <td>{editIndex === index ? <input value={editData.dia_asignado} onChange={e => handleChange(e, 'dia_asignado')} /> : p.dia_asignado}</td>
+                <td>{editIndex === index ? <input value={editData.latitud} onChange={e => handleChange(e, 'latitud')} /> : p.latitud}</td>
+                <td>{editIndex === index ? <input value={editData.longitud} onChange={e => handleChange(e, 'longitud')} /> : p.longitud}</td>
+                <td>
                   {editIndex === index ? (
                     <>
                       <button onClick={handleSave}>Guardar</button>
