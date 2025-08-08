@@ -1,9 +1,11 @@
+// src/pages/Graficos.js
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
   PieChart, Pie, Cell, ResponsiveContainer
 } from 'recharts';
+import API_URL from '../config'; // ✅ Usamos la URL centralizada
 import './App.css';
 
 const COLORS = ['#2563eb', '#f87171', '#facc15', '#6b7280'];
@@ -13,8 +15,9 @@ const Graficos = () => {
   const [camion, setCamion] = useState('Todos');
   const [dia, setDia] = useState('Todos');
 
+  // 🔹 Cargar datos desde Render usando la URL centralizada
   useEffect(() => {
-    axios.get('http://localhost:8000/rutas-activas')
+    axios.get(`${API_URL}/rutas-activas`)
       .then(res => {
         setDatos(Array.isArray(res.data) ? res.data : []);
       })
