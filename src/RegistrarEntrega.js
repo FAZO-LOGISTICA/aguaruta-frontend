@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import API_URL from '../config'; // ✅ Usamos la URL desde config.js
 import './App.css';
-
-const API_URL = "https://tu-backend.render.com"; // Cambia por tu URL real
 
 const RegistrarEntrega = () => {
   const [puntos, setPuntos] = useState([]);
@@ -27,7 +26,8 @@ const RegistrarEntrega = () => {
       return;
     }
 
-    const punto = puntos.find(p => p["nombre_(jefe_de_hogar)"] === nombre);
+    const punto = puntos.find(p => p["nombre"] === nombre); // ✅ campo correcto
+
     if (!punto) {
       setMensaje('❌ Nombre no encontrado en la base de datos.');
       return;
@@ -54,7 +54,7 @@ const RegistrarEntrega = () => {
   };
 
   const camiones = ['A1', 'A2', 'A3', 'A4', 'A5', 'M1', 'M2'];
-  const nombres = [...new Set(puntos.map(p => p["nombre_(jefe_de_hogar)"]).filter(Boolean))];
+  const nombres = [...new Set(puntos.map(p => p["nombre"]).filter(Boolean))]; // ✅ campo corregido
 
   return (
     <div className="main-container fade-in">
@@ -67,10 +67,13 @@ const RegistrarEntrega = () => {
             <option key={i} value={n}>{n}</option>
           ))}
         </select>
+
         <label>Litros entregados:</label>
         <input type="number" value={litros} onChange={(e) => setLitros(e.target.value)} />
+
         <label>Fecha:</label>
         <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+
         <label>Camión:</label>
         <select value={camion} onChange={(e) => setCamion(e.target.value)}>
           <option value="">Seleccionar</option>
@@ -78,6 +81,7 @@ const RegistrarEntrega = () => {
             <option key={i} value={c}>{c}</option>
           ))}
         </select>
+
         <button onClick={registrarEntrega} style={{ marginTop: '1rem' }}>Registrar Entrega</button>
         {mensaje && <p style={{ marginTop: '1rem' }}>{mensaje}</p>}
       </div>
