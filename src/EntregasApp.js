@@ -4,9 +4,8 @@ import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import API_URL from '../config'; // ✅ Importa desde config central
 import './App.css';
-
-const API_URL = process.env.REACT_APP_API_URL;
 
 function EntregasApp() {
   const [entregas, setEntregas] = useState([]);
@@ -138,4 +137,3 @@ function EntregasApp() {
 }
 
 export default EntregasApp;
-
