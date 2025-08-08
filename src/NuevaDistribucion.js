@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
+import API_URL from "../config"; // ✅ Usa URL centralizada
 import "./App.css";
-
-const API_URL = "https://tu-backend.render.com"; // Reemplaza por tu backend real
 
 const NuevaDistribucion = () => {
   const [estado, setEstado] = useState(null);
