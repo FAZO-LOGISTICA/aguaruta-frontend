@@ -1,4 +1,3 @@
-// src/ComparacionSemanal.js  (si está en /src/pages cambia el import a ../config)
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import {
@@ -7,7 +6,7 @@ import {
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import API_URL from './config'; // <-- ajusta a "../config" si este archivo está en /src/pages
+import API_URL from '../config'; // ✅ Ruta corregida
 import './App.css';
 
 const DIAS_ORDEN = ["LUNES","MARTES","MIERCOLES","MIÉRCOLES","JUEVES","VIERNES","SABADO","SÁBADO","DOMINGO"];
@@ -17,7 +16,6 @@ const ComparacionSemanal = () => {
   const [datos, setDatos] = useState([]);
   const [camion, setCamion] = useState('Todos');
 
-  // Rol (para exportaciones)
   const rol = localStorage.getItem("rol");
 
   useEffect(() => {
@@ -26,13 +24,11 @@ const ComparacionSemanal = () => {
       .catch(err => console.error('Error al cargar datos:', err));
   }, []);
 
-  // Filtrado por camión
   const datosFiltrados = useMemo(() => {
     if (camion === 'Todos') return datos;
     return datos.filter(r => r.camion === camion);
   }, [datos, camion]);
 
-  // Agrupar por día con suma de litros y conteo de entregas
   const resumen = useMemo(() => {
     const acc = {};
     for (const r of datosFiltrados) {
@@ -42,25 +38,21 @@ const ComparacionSemanal = () => {
       acc[diaKey].total_entregas += 1;
       acc[diaKey].total_litros += Number(r.litros || 0);
     }
-    // ordenar según DIAS_ORDEN; lo desconocido queda al final
     const orden = Object.values(acc).sort((a, b) => {
       const ia = DIAS_ORDEN.indexOf(a.dia);
       const ib = DIAS_ORDEN.indexOf(b.dia);
       return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
     });
-    // normaliza acentos para la vista
     return orden.map(x => ({
       ...x,
       dia: x.dia.replace("MIERCOLES", "MIÉRCOLES").replace("SABADO","SÁBADO")
     }));
   }, [datosFiltrados]);
 
-  // Listado de camiones
   const camiones = useMemo(() => {
     return [...new Set(datos.map(d => d.camion).filter(Boolean))].sort();
   }, [datos]);
 
-  // Exportar
   const exportarExcel = () => {
     const ws = XLSX.utils.json_to_sheet(resumen);
     const wb = XLSX.utils.book_new();
