@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { FaFilter } from "react-icons/fa";
+import API_URL from "./config"; // <-- IMPORTANTE
 
 const coloresCamiones = {
   A1: "#007bff",
@@ -33,7 +34,7 @@ function MapaRedistribucion() {
   const [dias, setDias] = useState([]);
 
   const cargarPuntos = () => {
-    axios.get("/data/RutasMapaFinal_con_telefono.json")
+    axios.get(`${API_URL}/redistribucion`)
       .then((res) => {
         const datos = Array.isArray(res.data) ? res.data : [];
         setPuntos(datos);
@@ -54,10 +55,8 @@ function MapaRedistribucion() {
   });
 
   return (
-    <main style={{ padding: "20px" }}>
-      <h2 style={{ fontWeight: "bold", marginBottom: "10px" }}>
-        Mapa de Nueva Redistribución
-      </h2>
+    <main className="main-container fade-in">
+      <h2 className="titulo">Mapa de Nueva Redistribución</h2>
 
       <div style={{ marginBottom: "10px", display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center" }}>
