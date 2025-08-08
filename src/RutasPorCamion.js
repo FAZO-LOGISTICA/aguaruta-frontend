@@ -1,51 +1,69 @@
+// src/pages/RutasPorCamion.js   (si está en src/, cambia a: import API_URL from "./config")
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import API_URL from "../config";
 import "./App.css";
 
 const RutasPorCamion = () => {
   const [rutas, setRutas] = useState([]);
   const [resumen, setResumen] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState(null);
 
-  // AGREGADO: Obtener rol de localStorage
+  // Rol (para ocultar export a invitados)
   const rol = localStorage.getItem("rol");
 
   useEffect(() => {
-    axios.get("https://aguaruta-backend.onrender.com/rutas-activas").then((res) => {
-      setRutas(res.data);
-      agruparPorCamion(res.data);
-    });
+    const cargar = async () => {
+      try {
+        setCargando(true);
+        const res = await axios.get(`${API_URL}/rutas-activas`);
+        const data = Array.isArray(res.data) ? res.data : [];
+        setRutas(data);
+        agruparPorCamion(data);
+        setError(null);
+      } catch (e) {
+        console.error("Error al cargar datos:", e);
+        setError("No se pudieron cargar las rutas.");
+      } finally {
+        setCargando(false);
+      }
+    };
+    cargar();
   }, []);
 
   const agruparPorCamion = (data) => {
-    const resumen = {};
-
-    data.forEach((r) => {
-      const camion = r.camion;
-      if (!resumen[camion]) {
-        resumen[camion] = {
+    const acc = {};
+    for (const r of data) {
+      const camion = r.camion ?? "Sin Camión";
+      if (!acc[camion]) {
+        acc[camion] = {
           camion,
           totalEntregas: 0,
           totalLitros: 0,
-          dias: new Set(),
-          sectores: new Set(),
+          diasSet: new Set(),
+          sectoresSet: new Set(),
         };
       }
-      resumen[camion].totalEntregas += 1;
-      resumen[camion].totalLitros += Number(r.litros || 0);
-      resumen[camion].dias.add(r.dia_asignado);
-      resumen[camion].sectores.add(r.sector);
-    });
+      acc[camion].totalEntregas += 1;
+      acc[camion].totalLitros += Number(r.litros || 0);
+      if (r.dia) acc[camion].diasSet.add(r.dia);
+      // 'sector' puede no existir; lo agregamos si viene
+      if (r.sector) acc[camion].sectoresSet.add(r.sector);
+    }
 
-    const resumenFinal = Object.values(resumen).map((r) => ({
-      camion: r.camion,
-      totalEntregas: r.totalEntregas,
-      totalLitros: r.totalLitros,
-      dias: Array.from(r.dias).join(", "),
-      sectores: Array.from(r.sectores).join(", "),
-    }));
+    const resumenFinal = Object.values(acc)
+      .map((x) => ({
+        camion: x.camion,
+        totalEntregas: x.totalEntregas,
+        totalLitros: x.totalLitros,
+        dias: Array.from(x.diasSet).join(", "),
+        sectores: x.sectoresSet.size ? Array.from(x.sectoresSet).join(", ") : "-",
+      }))
+      .sort((a, b) => String(a.camion).localeCompare(String(b.camion)));
 
     setResumen(resumenFinal);
   };
@@ -72,14 +90,14 @@ const RutasPorCamion = () => {
     doc.save("resumen_por_camion.pdf");
   };
 
-  // AGREGADO para evitar el warning de Netlify:
-  console.log(rutas);
+  if (cargando) return <div className="main-container"><p>Cargando…</p></div>;
+  if (error) return <div className="main-container"><p>{error}</p></div>;
 
   return (
     <div className="main-container fade-in">
       <h2 className="titulo">Resumen de Rutas por Camión</h2>
 
-      {/* --- SOLO PARA USUARIOS QUE NO SON INVITADO --- */}
+      {/* SOLO PARA USUARIOS QUE NO SON INVITADO */}
       {rol !== "invitado" && (
         <div className="botones-exportar">
           <button onClick={exportarExcel}>📤 Excel</button>
@@ -99,7 +117,7 @@ const RutasPorCamion = () => {
         </thead>
         <tbody>
           {resumen.map((r, i) => (
-            <tr key={i}>
+            <tr key={`${r.camion}-${i}`}>
               <td>{r.camion}</td>
               <td>{r.totalEntregas}</td>
               <td>{r.totalLitros}</td>
