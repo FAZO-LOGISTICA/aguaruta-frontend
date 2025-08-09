@@ -9,7 +9,7 @@ import {
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
-// Códigos oficiales del sistema:
+// Códigos oficiales:
 // 1 = Entregada
 // 0 = No entrega (con foto)
 // 2 = No entrega (con foto, sin ubicar)
@@ -37,7 +37,6 @@ export default function Entregas() {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
 
-  // Filtros
   const hoy = new Date().toISOString().slice(0, 10);
   const [desde, setDesde] = useState(hoy);
   const [hasta, setHasta] = useState(hoy);
@@ -93,9 +92,9 @@ export default function Entregas() {
   const formateaLitros = (v) => {
     const n = Number(v || 0);
     return Number.isFinite(n) ? n.toLocaleString("es-CL") : "";
-    };
+  };
 
-  const fechaStr = (r) => (r.fecha ? String(r.fecha).slice(0,10) : (r.dia || "")); // fallback si backend aún devuelve "dia"
+  const fechaStr = (r) => (r.fecha ? String(r.fecha).slice(0,10) : (r.dia || ""));
 
   return (
     <main className="vista-main min-h-screen" style={{ backgroundImage: `url(${fondo})` }}>
