@@ -15,7 +15,8 @@ import MapaRedistribucion from "./MapaRedistribucion";
 import EditarRedistribucion from "./EditarRedistribucion";
 import AdminUsuarios from "./AdminUsuarios";
 import LoginApp from "./LoginApp";
-import EntregasApp from "./EntregasApp"; // ✅ NUEVA IMPORTACIÓN
+import EntregasApp from "./EntregasApp"; // ✅ existente
+import Entregas from "./Entregas";       // ✅ NUEVO: historial web
 
 const usuariosEjemplo = [
   { username: "che.gustrago", password: "FAZO-LOGISTICA", role: "dios" },
@@ -32,10 +33,11 @@ const menuItems = [
   { path: "/rutas-por-camion", label: "Rutas por Camión", roles: ["dios", "editor", "invitado"] },
   { path: "/rutas-activas", label: "Ruta Activa", roles: ["dios", "editor"] },
   { path: "/registrar-entrega", label: "Registrar Entrega", roles: ["dios", "editor"] },
+  { path: "/entregas", label: "Entregas", roles: ["dios", "editor"] }, // ✅ NUEVO en menú
   { path: "/registrar-punto", label: "Registrar Punto", roles: ["dios", "editor"] },
   { path: "/nueva-distribucion", label: "Nueva Distribución", roles: ["dios"] },
   { path: "/no-entregadas", label: "No Entregadas", roles: ["dios", "editor"] },
-  { path: "/entregas-app", label: "Entregas App", roles: ["dios", "editor"] }, // ✅ NUEVO
+  { path: "/entregas-app", label: "Entregas App", roles: ["dios", "editor"] },
   { path: "/mapa-redistribucion", label: "Mapa Redistribución", roles: ["dios"] },
   { path: "/editar-redistribucion", label: "Editar Redistribución", roles: ["dios"] },
   { path: "/usuarios", label: "Usuarios", roles: ["dios"] }
@@ -180,21 +182,22 @@ function App() {
             <Route path="/rutas-por-camion" element={<RutasPorCamion />} />
             <Route path="/rutas-activas" element={<RutasActivas />} />
             <Route path="/registrar-entrega" element={<RegistrarEntrega />} />
+            <Route path="/entregas" element={<Entregas />} /> {/* ✅ NUEVA RUTA HISTORIAL */}
             <Route path="/registrar-punto" element={<RegistrarNuevoPunto />} />
             <Route path="/nueva-distribucion" element={<NuevaDistribucion />} />
             <Route path="/no-entregadas" element={<NoEntregadas />} />
-            <Route path="/entregas-app" element={<EntregasApp />} /> {/* ✅ NUEVA RUTA */}
+            <Route path="/entregas-app" element={<EntregasApp />} />
             <Route path="/mapa-redistribucion" element={<MapaRedistribucion />} />
             <Route path="/editar-redistribucion" element={<EditarRedistribucion />} />
             <Route path="/usuarios" element={
               usuarioActual.role === "dios"
                 ? <AdminUsuarios
-                  usuarios={usuarios}
-                  setUsuarios={setUsuarios}
-                  agregarUsuario={agregarUsuario}
-                  eliminarUsuario={eliminarUsuario}
-                  cambiarContraseña={cambiarContraseña}
-                />
+                    usuarios={usuarios}
+                    setUsuarios={setUsuarios}
+                    agregarUsuario={agregarUsuario}
+                    eliminarUsuario={eliminarUsuario}
+                    cambiarContraseña={cambiarContraseña}
+                  />
                 : <Navigate to="/" />
             } />
             <Route path="*" element={<Navigate to="/" />} />
