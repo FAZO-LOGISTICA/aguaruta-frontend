@@ -1,5 +1,5 @@
 // src/Graficos.js
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import axios from "axios";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
@@ -137,6 +137,7 @@ const Graficos = () => {
 };
 
 export default Graficos;
+
 
 
 
