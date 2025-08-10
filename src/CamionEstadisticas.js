@@ -1,92 +1,90 @@
-// src/pages/CamionEstadisticas.js  (si está en src/, cambia el import a "./config")
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
-} from 'recharts';
-import { FaFileExcel, FaFilePdf } from 'react-icons/fa';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import API_URL from '../config'; // <-- usa la URL centralizada
-import './App.css';
+// src/pages/CamionEstadisticas.js
+import React, { useEffect, useState, useMemo } from "react";
+import axios from "axios";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { FaFileExcel, FaFilePdf } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import API_URL from "config"; // requiere jsconfig.json con { "compilerOptions": { "baseUrl": "src" } }
 
 const CamionEstadisticas = () => {
   const [datos, setDatos] = useState([]);
-  const [camionSeleccionado, setCamionSeleccionado] = useState('Todos');
+  const [camionSeleccionado, setCamionSeleccionado] = useState("Todos");
 
-  // Rol (por si quieres ocultar export a invitados)
-  const rol = localStorage.getItem('rol');
+  const rol = localStorage.getItem("rol");
 
   useEffect(() => {
-    axios.get(`${API_URL}/rutas-activas`)
-      .then(res => {
-        const arr = Array.isArray(res.data) ? res.data : [];
-        setDatos(arr);
-      })
-      .catch(err => console.error('Error al cargar datos:', err));
+    axios
+      .get(`${API_URL}/rutas-activas`)
+      .then((res) => setDatos(Array.isArray(res.data) ? res.data : []))
+      .catch((err) => console.error("Error al cargar datos:", err));
   }, []);
 
-  // Filtrado por camión seleccionado
-  const datosFiltrados = camionSeleccionado === 'Todos'
-    ? datos
-    : datos.filter(d => d.camion === camionSeleccionado);
+  const datosFiltrados = useMemo(
+    () => (camionSeleccionado === "Todos" ? datos : datos.filter((d) => d.camion === camionSeleccionado)),
+    [datos, camionSeleccionado]
+  );
 
-  // Resumen agrupado por (camion, dia)
-  const resumen = Object.values(
-    datosFiltrados.reduce((acc, item) => {
-      const camion = item.camion ?? 'Sin Camión';
-      const dia = item.dia ?? 'Sin Día';
+  const resumen = useMemo(() => {
+    const acc = {};
+    for (const item of datosFiltrados) {
+      const camion = item.camion ?? "Sin Camión";
+      const dia = item.dia ?? "Sin Día";
       const key = `${camion}||${dia}`;
-
-      if (!acc[key]) {
-        acc[key] = {
-          camion,
-          dia,
-          total_entregas: 0,
-          total_litros: 0,
-        };
-      }
-
+      if (!acc[key]) acc[key] = { camion, dia, total_entregas: 0, total_litros: 0 };
       acc[key].total_entregas += 1;
       acc[key].total_litros += Number(item.litros || 0);
-      return acc;
-    }, {})
-  ).sort((a, b) => (a.camion + a.dia).localeCompare(b.camion + b.dia));
+    }
+    return Object.values(acc).sort((a, b) => (a.camion + a.dia).localeCompare(b.camion + b.dia));
+  }, [datosFiltrados]);
 
   const exportarExcel = () => {
     const ws = XLSX.utils.json_to_sheet(resumen);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Estadisticas');
-    XLSX.writeFile(wb, 'estadisticas_camion_dia.xlsx');
+    XLSX.utils.book_append_sheet(wb, ws, "Estadisticas");
+    XLSX.writeFile(wb, "estadisticas_camion_dia.xlsx");
   };
 
   const exportarPDF = () => {
     const doc = new jsPDF();
     doc.autoTable({
-      head: [['Camión', 'Día', 'Total Entregas', 'Total Litros']],
-      body: resumen.map(d => [d.camion, d.dia, d.total_entregas, d.total_litros]),
+      head: [["Camión", "Día", "Total Entregas", "Total Litros"]],
+      body: resumen.map((d) => [d.camion, d.dia, d.total_entregas, d.total_litros]),
     });
-    doc.save('estadisticas_camion_dia.pdf');
+    doc.save("estadisticas_camion_dia.pdf");
   };
 
-  const camiones = [...new Set(datos.map(d => d.camion).filter(Boolean))].sort();
+  const camiones = useMemo(
+    () => [...new Set(datos.map((d) => d.camion).filter(Boolean))].sort(),
+    [datos]
+  );
 
   return (
     <div className="main-container fade-in">
       <h2 className="titulo">Estadísticas por Camión y Día</h2>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-        <label><strong>Camión:</strong></label>
+      <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
+        <label>
+          <strong>Camión:</strong>
+        </label>
         <select value={camionSeleccionado} onChange={(e) => setCamionSeleccionado(e.target.value)}>
           <option value="Todos">Todos</option>
-          {camiones.map((c) => <option key={c} value={c}>{c}</option>)}
+          {camiones.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
         </select>
 
-        {rol !== 'invitado' && (
+        {rol !== "invitado" && (
           <>
-            <button onClick={exportarExcel}><FaFileExcel /> Exportar Excel</button>
-            <button onClick={exportarPDF}><FaFilePdf /> Exportar PDF</button>
+            <button onClick={exportarExcel}>
+              <FaFileExcel /> Exportar Excel
+            </button>
+            <button onClick={exportarPDF}>
+              <FaFilePdf /> Exportar PDF
+            </button>
           </>
         )}
       </div>
@@ -119,7 +117,7 @@ const CamionEstadisticas = () => {
           <YAxis />
           <Tooltip />
           <Legend />
-          <Bar dataKey="total_litros" fill="#2563eb" name="Litros" />
+          <Bar dataKey="total_litros" name="Litros" />
         </BarChart>
       </ResponsiveContainer>
     </div>
