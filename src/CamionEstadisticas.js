@@ -1,4 +1,4 @@
-// src/pages/CamionEstadisticas.js
+// src/CamionEstadisticas.js
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -125,4 +125,5 @@ const CamionEstadisticas = () => {
 };
 
 export default CamionEstadisticas;
+
 
