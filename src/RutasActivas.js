@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import API_URL from "./config";   // ✅ desde pages → sube a src/config
-import "../App.css";               // ✅ desde pages → sube a src/App.css
+import "./App.css";               // ✅ desde pages → sube a src/App.css
 
 // normaliza texto (quita tildes y pasa a minúsculas)
 const normalizar = (str) =>
@@ -275,4 +275,5 @@ const RutasActivas = () => {
 };
 
 export default RutasActivas;
+
 
