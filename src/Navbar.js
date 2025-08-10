@@ -1,11 +1,11 @@
 // src/Navbar.js
-import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
+import React from "react";
 import { NavLink } from "react-router-dom";
 import "./estilos/Navbar.css";
 
-const linkClass = ({ isActive }) => (isActive ? "active" : "");
+const linkClass = ({ isActive }) => (isActive ? "active" : undefined);
 
-const Navbar = () => {
+export default function Navbar() {
   return (
     <nav className="navbar">
       <ul>
@@ -18,7 +18,4 @@ const Navbar = () => {
       </ul>
     </nav>
   );
-};
-
-export default Navbar;
-
+}
