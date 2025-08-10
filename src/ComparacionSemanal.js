@@ -7,7 +7,7 @@ import {
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import API_URL from "../config";   // ✅ correcto si este archivo está en src/pages/
+import API_URL from "./config";   // ✅ correcto si este archivo está en src/pages/
 import "../App.css";               // ✅ correcto si App.css está en src/
 
 const DIAS_ORDEN = ["LUNES","MARTES","MIERCOLES","MIÉRCOLES","JUEVES","VIERNES","SABADO","SÁBADO","DOMINGO"];
@@ -130,4 +130,5 @@ const ComparacionSemanal = () => {
 };
 
 export default ComparacionSemanal;
+
 
