@@ -1,5 +1,5 @@
 // src/Graficos.js
-import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
@@ -31,6 +31,7 @@ const Graficos = () => {
     () => [...new Set(datos.map((d) => d.camion).filter(Boolean))].sort(),
     [datos]
   );
+
   const dias = useMemo(
     () => [...new Set(datos.map((d) => d.dia).filter(Boolean))].sort(),
     [datos]
@@ -137,7 +138,3 @@ const Graficos = () => {
 };
 
 export default Graficos;
-
-
-
-
