@@ -1,5 +1,5 @@
 // src/Encabezado.js
-import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
+import React from "react";
 
 const Encabezado = () => {
   return (
@@ -14,4 +14,3 @@ const Encabezado = () => {
 };
 
 export default Encabezado;
-
