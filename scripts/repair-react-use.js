@@ -1,46 +1,45 @@
 // scripts/repair-react-use.js
-// Corrige TODAS las variantes de `import { use } from 'react'`
-// incluyendo alias: `use as algo`, espacios, comas, etc. Luego verifica.
+// Arregla cualquier `import { use } from 'react'` en TODO el repo,
+// incluyendo alias (use as X), espacios, comas, y también dentro de node_modules.
+// Luego verifica y si queda algo, lista los archivos y corta el build.
 
 const fs = require('fs');
 const path = require('path');
 
-const EXTS = ['.js', '.jsx', '.ts', '.tsx'];
-const IGNORE_DIRS = new Set(['node_modules', '.git', 'build', 'dist', '.next', 'out', 'coverage']);
-const ROOTS = [process.cwd()]; // recorre todo el repo, no solo /src
-
+const EXTS = new Set(['.js', '.jsx', '.ts', '.tsx']);
+const IGNORE_DIRS = new Set(['.git', 'build', 'dist', '.next', 'out', 'coverage']);
+const ROOT = process.cwd();
 let touched = [];
 let hits = [];
 
 function shouldSkipDir(name) {
+  // NO ignoramos node_modules para poder reparar dependencias si hacen `import { use }`
   return IGNORE_DIRS.has(name);
 }
 
-// elimina entradas 'use' o 'use as Alias' de una lista de imports { ... }
 function stripUseFromList(list) {
   return list
     .split(',')
     .map(s => s.trim())
-    // quita: use,  use as Alias
+    // elimina: use  |  use as Alias
     .filter(s => !/^use(\s+as\s+\w+)?$/i.test(s))
     .filter(Boolean);
 }
 
-function fixFile(p) {
-  const ext = path.extname(p);
-  if (!EXTS.includes(ext)) return;
-  let txt = fs.readFileSync(p, 'utf8');
-  const before = txt;
+function fixFile(file) {
+  const ext = path.extname(file);
+  if (!EXTS.has(ext)) return;
+  let text = fs.readFileSync(file, 'utf8');
+  const before = text;
 
-  // 1) import { use } from 'react'  (con alias y espacios)
-  //    -> import React from 'react';
-  txt = txt.replace(
+  // Caso 1: import { use } from 'react'  (con o sin alias)
+  text = text.replace(
     /import\s*{\s*use(\s+as\s+\w+)?\s*}\s*from\s*['"]react['"]\s*;?/gi,
     "import React from 'react';"
   );
 
-  // 2) import React, { ..., use, ... } from 'react';
-  txt = txt.replace(
+  // Caso 2: import React, { ..., use, ... } from 'react';
+  text = text.replace(
     /import\s+React\s*,\s*{([^}]*)}\s*from\s*['"]react['"]\s*;?/gi,
     (m, group) => {
       const cleaned = stripUseFromList(group).join(', ');
@@ -50,8 +49,8 @@ function fixFile(p) {
     }
   );
 
-  // 3) import { a, use, b } from 'react';
-  txt = txt.replace(
+  // Caso 3: import { a, use, b } from 'react';
+  text = text.replace(
     /import\s*{([^}]*)}\s*from\s*['"]react['"]\s*;?/gi,
     (m, group) => {
       const parts = stripUseFromList(group);
@@ -60,38 +59,37 @@ function fixFile(p) {
     }
   );
 
-  if (txt !== before) {
-    fs.writeFileSync(p, txt, 'utf8');
-    touched.push(p);
+  if (text !== before) {
+    fs.writeFileSync(file, text, 'utf8');
+    touched.push(file);
   }
 }
 
-function checkFile(p) {
-  const ext = path.extname(p);
-  if (!EXTS.includes(ext)) return;
-  const txt = fs.readFileSync(p, 'utf8');
-  // Detecta cualquier resto: { use } o { use as Alias }
+function checkFile(file) {
+  const ext = path.extname(file);
+  if (!EXTS.has(ext)) return;
+  const text = fs.readFileSync(file, 'utf8');
   const rx = /import\s*{[^}]*\buse(\s+as\s+\w+)?\b[^}]*}\s*from\s*['"]react['"]/i;
-  if (rx.test(txt)) hits.push(p);
+  if (rx.test(text)) hits.push(file);
 }
 
-function walk(dir, fn) {
+function walk(dir, cb) {
   if (!fs.existsSync(dir)) return;
-  for (const name of fs.readdirSync(dir)) {
-    const p = path.join(dir, name);
+  for (const entry of fs.readdirSync(dir)) {
+    const p = path.join(dir, entry);
     let st;
     try { st = fs.statSync(p); } catch { continue; }
     if (st.isDirectory()) {
-      if (shouldSkipDir(name)) continue;
-      walk(p, fn);
+      if (shouldSkipDir(entry)) continue;
+      walk(p, cb);
     } else {
-      try { fn(p); } catch {}
+      try { cb(p); } catch {}
     }
   }
 }
 
-console.log('▶️  repair-react-use: iniciando scan y fix...');
-walk(process.cwd(), fixFile);
+console.log('▶️  repair-react-use: escaneando y corrigiendo en todo el repo (incluye node_modules)...');
+walk(ROOT, fixFile);
 
 if (touched.length) {
   console.log('✅ Archivos corregidos:\n' + touched.join('\n'));
@@ -99,12 +97,11 @@ if (touched.length) {
   console.log('✅ No se encontraron importaciones inválidas para corregir.');
 }
 
-// Verificación final: si quedó algo, aborta y lista los archivos
 hits = [];
-walk(process.cwd(), checkFile);
+walk(ROOT, checkFile);
 
 if (hits.length) {
-  console.error('❌ Aún quedan importaciones inválidas de React en:\n' + hits.join('\n'));
+  console.error('❌ Aún quedan importaciones inválidas en:\n' + hits.join('\n'));
   process.exit(1);
 } else {
   console.log('✅ Verificación final OK: no quedan { use } en importaciones de React.');
