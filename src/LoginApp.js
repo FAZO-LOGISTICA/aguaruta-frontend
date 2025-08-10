@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 
 const LoginApp = ({ onLogin, onInvitado }) => {
   const [usuario, setUsuario] = useState("");
@@ -134,3 +134,4 @@ const LoginApp = ({ onLogin, onInvitado }) => {
 };
 
 export default LoginApp;
+
