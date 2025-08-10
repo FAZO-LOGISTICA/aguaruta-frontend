@@ -1,6 +1,7 @@
+// src/NuevaDistribucion.js
 import React, { useState } from "react";
 import axios from "axios";
-import API_URL from "../config"; // ✅ Usa URL centralizada
+import API_URL from "./config"; // ✅ en src/ va con "./config"
 import "./App.css";
 
 const NuevaDistribucion = () => {
@@ -8,22 +9,22 @@ const NuevaDistribucion = () => {
   const [cargando, setCargando] = useState(false);
 
   const activarRedistribucion = async () => {
-    const confirmar = window.confirm(
-      "¿Estás seguro que deseas activar la redistribución para septiembre?"
-    );
-    if (!confirmar) return;
+    if (!window.confirm("¿Estás seguro que deseas activar la redistribución?")) return;
 
     setCargando(true);
     try {
       const res = await axios.post(`${API_URL}/activar-redistribucion`);
-      setEstado({ tipo: "exito", mensaje: res.data.mensaje });
+      setEstado({ tipo: "exito", mensaje: res.data?.mensaje || "Redistribución activada" });
     } catch (error) {
-      setEstado({
-        tipo: "error",
-        mensaje: error.response?.data?.error || "Error al activar redistribución",
-      });
+      const msg =
+        error?.response?.data?.detail ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Error al activar redistribución";
+      setEstado({ tipo: "error", mensaje: msg });
+    } finally {
+      setCargando(false);
     }
-    setCargando(false);
   };
 
   return (
@@ -31,8 +32,7 @@ const NuevaDistribucion = () => {
       <h2 className="titulo">Activar Redistribución Semanal</h2>
 
       <p style={{ fontSize: "1rem", marginBottom: "1.5rem", textAlign: "center" }}>
-        Esta acción reemplazará la base de datos actual con la redistribución planificada
-        para septiembre. Todos los puntos nuevos quedarán operativos.
+        Esta acción reemplazará la base actual con la redistribución planificada.
       </p>
 
       <div style={{ display: "flex", justifyContent: "center" }}>
