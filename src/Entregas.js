@@ -1,5 +1,5 @@
 // src/Entregas.js
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import axios from "axios";
 import * as XLSX from "xlsx";
 import {
@@ -250,3 +250,4 @@ export default function Entregas() {
     </main>
   );
 }
+
