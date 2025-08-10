@@ -1,5 +1,5 @@
 // src/RegistrarEntrega.js
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import axios from "axios";
 import API_URL from "./config"; // ✅ este archivo está en src/
 import "./App.css";
@@ -147,3 +147,4 @@ const RegistrarEntrega = () => {
 };
 
 export default RegistrarEntrega;
+
