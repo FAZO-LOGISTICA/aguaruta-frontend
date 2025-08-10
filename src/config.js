@@ -1,6 +1,5 @@
 // src/config.js
-// Configuración centralizada de la API para AguaRuta
-
-const API_URL = "https://aguaruta-backend.onrender.com"; // o tu Ngrok si estás en pruebas
+const API_URL =
+  process.env.REACT_APP_API_URL || "https://aguaruta-backend.onrender.com";
 
 export default API_URL;
