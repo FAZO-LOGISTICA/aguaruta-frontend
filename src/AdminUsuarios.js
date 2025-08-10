@@ -1,5 +1,5 @@
 // src/AdminUsuarios.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 
 export default function AdminUsuarios({ usuarios, setUsuarios, agregarUsuario, eliminarUsuario, cambiarContraseña }) {
   const [nuevoUsuario, setNuevoUsuario] = useState({
@@ -125,3 +125,4 @@ export default function AdminUsuarios({ usuarios, setUsuarios, agregarUsuario, e
     </div>
   );
 }
+
