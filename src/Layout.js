@@ -1,5 +1,5 @@
 // src/Layout.js
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import { Link, useLocation } from 'react-router-dom';
 import {
   FaMapMarkedAlt,
@@ -66,3 +66,4 @@ const Layout = ({ children }) => {
 };
 
 export default Layout;
+
