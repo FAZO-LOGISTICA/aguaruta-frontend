@@ -1,5 +1,5 @@
 // src/Navbar.js
-import React from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import { NavLink } from "react-router-dom";
 import "./estilos/Navbar.css";
 
@@ -21,3 +21,4 @@ const Navbar = () => {
 };
 
 export default Navbar;
+
