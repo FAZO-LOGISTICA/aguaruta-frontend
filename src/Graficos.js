@@ -1,4 +1,4 @@
-// src/pages/Graficos.js
+// src/Graficos.js
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
@@ -137,3 +137,4 @@ const Graficos = () => {
 };
 
 export default Graficos;
+
