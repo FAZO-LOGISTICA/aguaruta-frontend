@@ -1,10 +1,10 @@
-// src/pages/RutasPorCamion.js   (si está en src/, cambia a: import API_URL from "./config")
+// src/RutasPorCamion.js
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import API_URL from "../config";
+import API_URL from "./config";   // ✅ directo en src/
 import "./App.css";
 
 const RutasPorCamion = () => {
@@ -13,7 +13,7 @@ const RutasPorCamion = () => {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
-  // Rol (para ocultar export a invitados)
+  // Para ocultar export a invitados (opcional)
   const rol = localStorage.getItem("rol");
 
   useEffect(() => {
@@ -51,8 +51,7 @@ const RutasPorCamion = () => {
       acc[camion].totalEntregas += 1;
       acc[camion].totalLitros += Number(r.litros || 0);
       if (r.dia) acc[camion].diasSet.add(r.dia);
-      // 'sector' puede no existir; lo agregamos si viene
-      if (r.sector) acc[camion].sectoresSet.add(r.sector);
+      if (r.sector) acc[camion].sectoresSet.add(r.sector); // sector es opcional
     }
 
     const resumenFinal = Object.values(acc)
@@ -97,7 +96,6 @@ const RutasPorCamion = () => {
     <div className="main-container fade-in">
       <h2 className="titulo">Resumen de Rutas por Camión</h2>
 
-      {/* SOLO PARA USUARIOS QUE NO SON INVITADO */}
       {rol !== "invitado" && (
         <div className="botones-exportar">
           <button onClick={exportarExcel}>📤 Excel</button>
@@ -122,7 +120,7 @@ const RutasPorCamion = () => {
               <td>{r.totalEntregas}</td>
               <td>{r.totalLitros}</td>
               <td>{r.dias}</td>
-              <td style={{ textAlign: "justify", maxWidth: "600px" }}>{r.sectores}</td>
+              <td style={{ textAlign: "justify", maxWidth: 600 }}>{r.sectores}</td>
             </tr>
           ))}
         </tbody>
