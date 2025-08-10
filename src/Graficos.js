@@ -6,7 +6,7 @@ import {
   PieChart, Pie, ResponsiveContainer, CartesianGrid, Cell
 } from "recharts";
 import API_URL from "./config";
-import "../App.css";
+import "./App.css";
 
 const DIAS_ORDEN = ["LUNES","MARTES","MIERCOLES","MIÉRCOLES","JUEVES","VIERNES","SABADO","SÁBADO","DOMINGO"];
 const normalizaDia = (d) =>
@@ -137,5 +137,6 @@ const Graficos = () => {
 };
 
 export default Graficos;
+
 
 
