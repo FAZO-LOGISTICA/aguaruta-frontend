@@ -1,5 +1,5 @@
 // src/Header.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import './App.css';
 
 function Header() {
@@ -15,3 +15,4 @@ function Header() {
 }
 
 export default Header;
+
