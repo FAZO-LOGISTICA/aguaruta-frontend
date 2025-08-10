@@ -1,11 +1,11 @@
-// src/pages/RutasActivas.js  (si está en src/, cambia a: import API_URL from "./config")
+// src/pages/RutasActivas.js
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import API_URL from "../config";
-import "./App.css";
+import API_URL from "../config";   // ✅ desde pages → sube a src/config
+import "../App.css";               // ✅ desde pages → sube a src/App.css
 
 // normaliza texto (quita tildes y pasa a minúsculas)
 const normalizar = (str) =>
