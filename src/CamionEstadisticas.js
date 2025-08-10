@@ -6,7 +6,7 @@ import { FaFileExcel, FaFilePdf } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import API_URL from ".config"; // requiere jsconfig.json con { "compilerOptions": { "baseUrl": "src" } }
+import API_URL from "./config"; // requiere jsconfig.json con { "compilerOptions": { "baseUrl": "src" } }
 
 const CamionEstadisticas = () => {
   const [datos, setDatos] = useState([]);
@@ -125,5 +125,6 @@ const CamionEstadisticas = () => {
 };
 
 export default CamionEstadisticas;
+
 
 
