@@ -1,5 +1,5 @@
 // src/ComparacionSemanal.js
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import axios from "axios";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -130,6 +130,7 @@ const ComparacionSemanal = () => {
 };
 
 export default ComparacionSemanal;
+
 
 
 
