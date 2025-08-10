@@ -6,8 +6,7 @@ import {
   FaTruck, FaTint, FaCheckCircle, FaTimesCircle, FaExclamationTriangle,
   FaPhone, FaMapMarkerAlt, FaImage
 } from "react-icons/fa";
-
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+import API_URL from "./config"; // ⬅️ USAR config centralizada
 
 // Códigos oficiales:
 // 1 = Entregada
@@ -69,7 +68,7 @@ export default function Entregas() {
     }
   };
 
-  useEffect(() => { fetchEntregas(); /* carga inicial */ }, []); // eslint-disable-line
+  useEffect(() => { fetchEntregas(); }, []); // carga inicial
 
   const totales = useMemo(() => {
     let entregas = 0, litros = 0;
