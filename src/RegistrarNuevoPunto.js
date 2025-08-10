@@ -1,5 +1,5 @@
 // src/RegistrarNuevoPunto.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import axios from "axios";
 import API_URL from "./config"; // ✅ usa la config centralizada
 import "./App.css";
@@ -121,3 +121,4 @@ const RegistrarNuevoPunto = () => {
 };
 
 export default RegistrarNuevoPunto;
+
