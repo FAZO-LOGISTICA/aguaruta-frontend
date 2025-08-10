@@ -1,10 +1,10 @@
 // src/EntregasApp.js
-import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import API_URL from "./config"; // ✅ está en src/, por eso "./config"
+import API_URL from "./config";
 import "./App.css";
 
 const ESTADOS_TXT = {
