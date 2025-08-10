@@ -1,14 +1,14 @@
 // src/ComparacionSemanal.js
-import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
-import axios from "axios";
+import React, { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from "recharts";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import API_URL from "./config";   // ✅ correcto si este archivo está en src/pages/
-import "./App.css";               // ✅ correcto si App.css está en src/
+} from 'recharts';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import API_URL from './config';
+import './App.css';
 
 const DIAS_ORDEN = ["LUNES","MARTES","MIERCOLES","MIÉRCOLES","JUEVES","VIERNES","SABADO","SÁBADO","DOMINGO"];
 const normalizarDia = (d) =>
@@ -130,7 +130,3 @@ const ComparacionSemanal = () => {
 };
 
 export default ComparacionSemanal;
-
-
-
-
