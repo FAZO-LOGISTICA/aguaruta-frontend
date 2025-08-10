@@ -1,12 +1,12 @@
 // src/Entregas.js
-import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import {
   FaTruck, FaTint, FaCheckCircle, FaTimesCircle, FaExclamationTriangle,
   FaPhone, FaMapMarkerAlt, FaImage
 } from "react-icons/fa";
-import API_URL from "./config"; // ⬅️ USAR config centralizada
+import API_URL from "./config";
 
 // Códigos oficiales:
 // 1 = Entregada
@@ -53,10 +53,12 @@ export default function Entregas() {
       setCargando(true);
       setError("");
       const params = {
-        desde, hasta,
+        desde,
+        hasta,
         camion: camion || undefined,
         nombre: nombre || undefined,
-        estado: estado || undefined,
+        // importante: conservar el "0" como valor válido
+        estado: estado === "" ? undefined : estado,
       };
       const res = await axios.get(`${API_URL}/entregas`, { params });
       setData(Array.isArray(res.data) ? res.data : []);
@@ -93,7 +95,7 @@ export default function Entregas() {
     return Number.isFinite(n) ? n.toLocaleString("es-CL") : "";
   };
 
-  const fechaStr = (r) => (r.fecha ? String(r.fecha).slice(0,10) : (r.dia || ""));
+  const fechaStr = (r) => (r.fecha ? String(r.fecha).slice(0, 10) : (r.dia || ""));
 
   return (
     <main className="vista-main min-h-screen" style={{ backgroundImage: `url(${fondo})` }}>
@@ -250,4 +252,3 @@ export default function Entregas() {
     </main>
   );
 }
-
