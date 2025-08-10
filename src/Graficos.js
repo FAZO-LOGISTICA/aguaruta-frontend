@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
   PieChart, Pie, ResponsiveContainer, CartesianGrid, Cell
 } from "recharts";
-import API_URL from "../config";
+import API_URL from "./config";
 import "../App.css";
 
 const DIAS_ORDEN = ["LUNES","MARTES","MIERCOLES","MIÉRCOLES","JUEVES","VIERNES","SABADO","SÁBADO","DOMINGO"];
@@ -137,4 +137,5 @@ const Graficos = () => {
 };
 
 export default Graficos;
+
 
