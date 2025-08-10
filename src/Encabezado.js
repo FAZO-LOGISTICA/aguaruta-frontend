@@ -3,7 +3,7 @@ import React from 'react';
 
 const Encabezado = () => {
   return (
-    <header>
+    <header className="header">
       <img
         src="/img/logos/logos-institucionales.png"
         alt="Logos institucionales"
