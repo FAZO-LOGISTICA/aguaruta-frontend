@@ -1,5 +1,5 @@
 // src/CamionEstadisticas.js
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import axios from "axios";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { FaFileExcel, FaFilePdf } from "react-icons/fa";
@@ -125,6 +125,7 @@ const CamionEstadisticas = () => {
 };
 
 export default CamionEstadisticas;
+
 
 
 
