@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import "./App.css";
 import "./estilos/Inicio.css";
 
@@ -31,3 +31,4 @@ const Inicio = () => {
 };
 
 export default Inicio;
+
