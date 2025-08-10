@@ -1,5 +1,5 @@
 // src/RutasActivas.js
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import axios from "axios";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -275,5 +275,6 @@ const RutasActivas = () => {
 };
 
 export default RutasActivas;
+
 
 
