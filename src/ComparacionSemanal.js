@@ -1,4 +1,4 @@
-// src/pages/ComparacionSemanal.js
+// src/ComparacionSemanal.js
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import {
@@ -130,3 +130,4 @@ const ComparacionSemanal = () => {
 };
 
 export default ComparacionSemanal;
+
