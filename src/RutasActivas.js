@@ -1,10 +1,10 @@
-// src/pages/RutasActivas.js
+// src/RutasActivas.js
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import API_URL from "../config";   // ✅ desde pages → sube a src/config
+import API_URL from "./config";   // ✅ desde pages → sube a src/config
 import "../App.css";               // ✅ desde pages → sube a src/App.css
 
 // normaliza texto (quita tildes y pasa a minúsculas)
@@ -275,3 +275,4 @@ const RutasActivas = () => {
 };
 
 export default RutasActivas;
+
