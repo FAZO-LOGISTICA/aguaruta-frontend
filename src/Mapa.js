@@ -1,10 +1,10 @@
-// src/Mapa.js  (si está en src/pages usa: import API_URL from "../config")
-import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
+// src/Mapa.js
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import API_URL from "./config"; // <-- ajusta a "../config" si corresponde
+import API_URL from "./config";
 import "./App.css";
 
 function crearIcono(color = "#007bff") {
@@ -45,7 +45,7 @@ export default function Mapa() {
     [puntos]
   );
 
-  // Centro aprox. Laguna Verde / Valpo
+  // Centro aproximado Laguna Verde / Valparaíso
   const center = [-33.07, -71.63];
 
   return (
@@ -78,4 +78,3 @@ export default function Mapa() {
     </main>
   );
 }
-
