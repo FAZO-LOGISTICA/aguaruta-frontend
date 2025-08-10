@@ -1,3 +1,4 @@
+/* src/App.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,76 +10,112 @@ html, body, #root {
   padding: 0;
 }
 
-/* Fondo general */
+/* Fondo y tipografía */
 body {
   @apply font-sans antialiased text-gray-800;
 }
 
-/* Botón de navegación */
-.btn-nav {
-  @apply flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-200 bg-opacity-80 text-black hover:bg-indigo-300 transition;
+/* ===== Layouts reutilizables ===== */
+.main-container {
+  @apply bg-white/90 backdrop-blur-md rounded-xl shadow-lg p-4 md:p-6 max-w-6xl mx-auto my-6;
 }
 
-/* Tarjetas */
+.titulo {
+  @apply text-2xl md:text-3xl font-bold text-slate-900 mb-4 text-center;
+}
+
+.subtitulo {
+  @apply text-lg md:text-xl font-semibold text-slate-800 mt-6 mb-3;
+}
+
+.fade-in {
+  animation: fadeInUp 0.6s ease-in-out;
+}
+
+@keyframes fadeInUp {
+  0% { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Tarjetas / secciones ===== */
 .card {
-  @apply bg-white bg-opacity-80 backdrop-blur-md rounded-xl shadow-md p-4 border border-gray-200 mb-4;
+  @apply bg-white/80 backdrop-blur-md rounded-2xl shadow border border-gray-200 p-4;
 }
 
-/* Títulos */
-.card-title {
-  @apply text-xl font-bold mb-2 text-gray-800;
+.card-header {
+  @apply flex flex-col gap-1;
 }
 
-/* Botón principal */
-.btn-primary {
-  @apply bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-xl transition duration-200 shadow;
+.glass {
+  @apply bg-white/70 backdrop-blur-md;
 }
 
-/* Inputs */
-.input {
-  @apply border border-gray-300 rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-blue-400;
+/* ===== Botones ===== */
+.btn { 
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold shadow-sm border border-transparent transition;
 }
-.label {
-  @apply text-sm font-medium text-gray-700 mb-1 block;
+.btn.primary { 
+  @apply bg-blue-600 text-white hover:bg-blue-700;
+}
+.btn.outline {
+  @apply bg-transparent text-slate-700 border-slate-300 hover:bg-slate-50;
 }
 
-/* Tabla */
-.table {
+/* ===== Formularios ===== */
+.label { @apply block text-sm font-medium text-gray-700 mb-1; }
+.input { @apply w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400; }
+.select { @apply w-full rounded-lg border border-gray-300 px-3 py-2 bg-white; }
+
+/* ===== Alertas ===== */
+.alert {
+  @apply px-4 py-2 rounded-xl border shadow bg-red-50 text-red-700 border-red-200;
+}
+
+/* ===== Tablas (clase usada en tu proyecto: .tabla) ===== */
+.tabla {
   @apply w-full border-collapse mt-4;
 }
-.table th {
+.tabla th {
   @apply bg-gray-100 text-left p-2 border-b border-gray-300 font-semibold;
 }
-.table td {
-  @apply p-2 border-b border-gray-200;
+.tabla td {
+  @apply p-2 border-b border-gray-200 align-top;
 }
-.table tr:hover {
+.tabla tr:hover {
   @apply bg-gray-50;
 }
 
-/* Colores por camión (bordes) */
-.border-blue-500 { border-left-color: #3b82f6 !important; }
-.border-green-500 { border-left-color: #10b981 !important; }
-.border-orange-500 { border-left-color: #f97316 !important; }
-.border-red-500 { border-left-color: #ef4444 !important; }
-.border-purple-500 { border-left-color: #8b5cf6 !important; }
-.border-gray-500 { border-left-color: #6b7280 !important; }
-.border-slate-700 { border-left-color: #374151 !important; }
+/* (Compatibilidad si alguna vista usa .table en lugar de .tabla) */
+.table { @apply w-full border-collapse mt-4; }
+.table th { @apply bg-gray-100 text-left p-2 border-b border-gray-300 font-semibold; }
+.table td { @apply p-2 border-b border-gray-200; }
+.table tr:hover { @apply bg-gray-50; }
 
-/* Mapa Leaflet */
+/* ===== Encabezado / logos fijos que usas en algunas vistas ===== */
+.header { @apply flex justify-center py-3; }
+.header-logo { @apply max-h-16 object-contain; }
+
+.logo-fijo {
+  @apply fixed top-2 left-1/2 -translate-x-1/2 z-20 max-h-12 md:max-h-14;
+}
+
+/* ===== Fondos con imagen (Entregas / Inicio) ===== */
+.vista-main {
+  @apply bg-cover bg-center min-h-screen;
+}
+.overlay {
+  @apply min-h-screen bg-white/30 backdrop-blur-sm;
+}
+
+/* ===== Leaflet ===== */
 .leaflet-container {
   @apply rounded-2xl border border-gray-300;
-  height: 400px;
+  /* la altura la define cada componente con style/prop */
+  z-index: 0;
 }
+.custom-marker { background: none; border: none; }
 
-/* Scroll */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-thumb {
-  background-color: rgba(100, 100, 100, 0.2);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(100, 100, 100, 0.4);
-}
+/* ===== Scrollbar suave ===== */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background-color: rgba(100,100,100,0.25); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(100,100,100,0.4); }
