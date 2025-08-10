@@ -1,17 +1,20 @@
+// src/Navbar.js
 import React from "react";
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import "./estilos/Navbar.css";
+
+const linkClass = ({ isActive }) => (isActive ? "active" : "");
 
 const Navbar = () => {
   return (
     <nav className="navbar">
       <ul>
-        <li><Link to="/">🏠 Inicio</Link></li>
-        <li><Link to="/rutas-activas">🚚 Rutas Activas</Link></li>
-        <li><Link to="/mapa">🗺️ Mapa</Link></li>
-        <li><Link to="/graficos">📊 Gráficos</Link></li>
-        <li><Link to="/registrar">📝 Registrar Entrega</Link></li>
-        <li><Link to="/rutas-camion">📅 Rutas por Camión</Link></li>
+        <li><NavLink to="/" end className={linkClass}>🏠 Inicio</NavLink></li>
+        <li><NavLink to="/rutas-activas" className={linkClass}>🚚 Rutas Activas</NavLink></li>
+        <li><NavLink to="/mapa" className={linkClass}>🗺️ Mapa</NavLink></li>
+        <li><NavLink to="/graficos" className={linkClass}>📊 Gráficos</NavLink></li>
+        <li><NavLink to="/registrar-entrega" className={linkClass}>📝 Registrar Entrega</NavLink></li>
+        <li><NavLink to="/rutas-por-camion" className={linkClass}>📅 Rutas por Camión</NavLink></li>
       </ul>
     </nav>
   );
