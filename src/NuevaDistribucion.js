@@ -1,7 +1,7 @@
 // src/NuevaDistribucion.js
-import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
+import React, { useState } from 'react';
 import axios from "axios";
-import API_URL from "./config"; // ✅ en src/ va con "./config"
+import API_URL from "./config";
 import "./App.css";
 
 const NuevaDistribucion = () => {
@@ -70,4 +70,3 @@ const NuevaDistribucion = () => {
 };
 
 export default NuevaDistribucion;
-
