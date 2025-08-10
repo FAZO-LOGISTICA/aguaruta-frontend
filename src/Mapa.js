@@ -1,5 +1,5 @@
 // src/Mapa.js  (si está en src/pages usa: import API_URL from "../config")
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import axios from "axios";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -78,3 +78,4 @@ export default function Mapa() {
     </main>
   );
 }
+
