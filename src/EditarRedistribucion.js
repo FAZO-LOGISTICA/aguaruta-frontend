@@ -1,5 +1,5 @@
 // src/EditarRedistribucion.js
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
 import axios from "axios";
 import * as XLSX from "xlsx";
 import "./App.css";
@@ -255,3 +255,4 @@ function EditarRedistribucion() {
 }
 
 export default EditarRedistribucion;
+
