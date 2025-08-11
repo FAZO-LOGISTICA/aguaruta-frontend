@@ -1,7 +1,8 @@
 [build]
-  command = "npm run prebuild && npm run build"
+  command = "npm ci && npm run prebuild && CI= npm run build"
   publish = "build"
 
 [build.environment]
   NODE_VERSION = "18.20.3"
   DISABLE_ESLINT_PLUGIN = "true"
+  CI = ""
