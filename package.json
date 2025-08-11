@@ -32,13 +32,14 @@
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13"
   },
-"scripts": {
-  "prebuild": "node -v && node scripts/locate-react-use.js",
-  "build": "react-scripts build",
-  "start": "react-scripts start",
-  "test": "react-scripts test",
-  "eject": "react-scripts eject"
-  },
+{
+  "scripts": {
+    "prebuild": "node scripts/prebuild.mjs",
+    "build": "react-scripts build",
+    "start": "react-scripts start"
+  }
+}
+
   "eslintConfig": {
     "extends": ["react-app", "react-app/jest"]
   },
