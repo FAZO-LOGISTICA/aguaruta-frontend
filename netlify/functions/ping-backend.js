@@ -1,28 +1,18 @@
 // netlify/functions/ping-backend.js
-const fetch = require('node-fetch');
 
 exports.handler = async function () {
   try {
-    const healthUrl = process.env.RENDER_HEALTH_URL;
-
-    if (!healthUrl) {
-      throw new Error("The env var RENDER_HEALTH_URL is not set.");
-    }
-
-    const resp = await fetch(healthUrl);
-    const text = await resp.text();
-
-    console.log("✅ Backend ping OK:", text);
+    const response = await fetch(process.env.API_URL || "https://tu-backend-url.com");
+    const data = await response.text();
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "Ping sent to backend" }),
+      body: JSON.stringify({ ok: true, backendResponse: data }),
     };
-  } catch (err) {
-    console.error("❌ Ping error:", err);
+  } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
+      body: JSON.stringify({ ok: false, error: error.message }),
     };
   }
 };
