@@ -5,16 +5,15 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const apiUrl = process.env.REACT_APP_API_URL || "";
-if (!apiUrl) {
-  console.warn("[prebuild] REACT_APP_API_URL no está definido. Usando vacío.");
-}
+const API_URL =
+  process.env.REACT_APP_API_URL?.replace(/([^/])$/, "$1/") || "http://localhost:8000/";
 
-// (opcional) genera un runtime config para el frontend
-mkdirSync("./src/config", { recursive: true });
-writeFileSync(
-  "./src/config/runtime.js",
-  `export const RUNTIME_CONFIG = { API_URL: "${apiUrl}" };`
-);
+const content = `// ⚠️ Archivo generado en prebuild. No editar a mano.
+export const API_URL = "${API_URL}";
+`;
 
-console.log("[prebuild] OK - runtime.js generado con API_URL:", apiUrl);
+const target = `${__dirname}/../src/runtime.js`;
+mkdirSync(`${__dirname}/../src`, { recursive: true });
+writeFileSync(target, content, "utf8");
+
+console.log("[prebuild] OK - runtime.js generado con API_URL:", API_URL.replace(/https?:\/\//, "****"));
