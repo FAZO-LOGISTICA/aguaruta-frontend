@@ -1,8 +1,12 @@
 [build]
-command = "npm install --legacy-peer-deps && npm run prebuild && CI= npm run build"
-publish = "build"
-functions = "netlify/functions"
+  command = "npm install --legacy-peer-deps && npm run prebuild && CI= npm run build"
+  publish = "build"
 
 [build.environment]
-NODE_VERSION = "22"
-DISABLE_ESLINT_PLUGIN = "true"
+  NODE_VERSION = "18"
+  DISABLE_ESLINT_PLUGIN = "true"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
