@@ -1,5 +1,4 @@
-// src/NuevaDistribucion.js
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import axios from "axios";
 import API_URL from "./config";
 import "./App.css";
@@ -10,18 +9,25 @@ const NuevaDistribucion = () => {
 
   const activarRedistribucion = async () => {
     if (!window.confirm("¿Estás seguro que deseas activar la redistribución?")) return;
-
     setCargando(true);
     try {
+      // Plan A: endpoint principal
       const res = await axios.post(`${API_URL}/activar-redistribucion`);
       setEstado({ tipo: "exito", mensaje: res.data?.mensaje || "Redistribución activada" });
-    } catch (error) {
-      const msg =
-        error?.response?.data?.detail ||
-        error?.response?.data?.error ||
-        error?.message ||
-        "Error al activar redistribución";
-      setEstado({ tipo: "error", mensaje: msg });
+    } catch (e1) {
+      try {
+        // Plan B: router alterno con prefijo (si lo tienes)
+        const res2 = await axios.post(`${API_URL}/nueva-distribucion/activar`);
+        setEstado({ tipo: "exito", mensaje: res2.data?.mensaje || "Redistribución activada" });
+      } catch (e2) {
+        const msg =
+          e2?.response?.data?.detail ||
+          e2?.response?.data?.error ||
+          e1?.response?.data?.detail ||
+          e1?.message ||
+          "Error al activar redistribución";
+        setEstado({ tipo: "error", mensaje: msg });
+      }
     } finally {
       setCargando(false);
     }
