@@ -7,6 +7,31 @@ import L from "leaflet";
 import API_URL from "./config";
 import "./App.css";
 
+// ---------- util ----------
+const toNum = (v) => {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim().replace(",", ".");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+};
+
+function normaliza(r, idx) {
+  const lat = r.latitud ?? r.lat ?? r.latitude ?? r.Latitud ?? null;
+  const lon = r.longitud ?? r.lon ?? r.lng ?? r.longitude ?? r.Longitud ?? null;
+  const dia = r.dia_asignado ?? r.dia ?? r.DIA ?? r.diaAsignado ?? null;
+
+  return {
+    id: r.id ?? idx + 1,
+    camion: r.camion ?? r.CAMION ?? r.camion_asignado ?? null,
+    nombre: r.nombre ?? r.NOMBRE ?? r.jefe_hogar ?? r.jefe ?? null,
+    litros: toNum(r.litros ?? r.LITROS ?? r.litros_de_entrega),
+    telefono: r.telefono ?? r.TELEFONO ?? r.phone ?? null,
+    dia,
+    latitud: toNum(lat),
+    longitud: toNum(lon),
+  };
+}
+
 function crearIcono(color = "#007bff") {
   return new L.DivIcon({
     className: "custom-marker",
@@ -17,36 +42,66 @@ function crearIcono(color = "#007bff") {
   });
 }
 
-const toNum = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
-
 export default function Mapa() {
   const [puntos, setPuntos] = useState([]);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    axios
-      .get(`${API_URL}/rutas-activas`)
-      .then((res) => setPuntos(Array.isArray(res.data) ? res.data : []))
-      .catch((err) => {
-        console.error("Error cargando puntos:", err);
-        setError("No se pudieron cargar las rutas.");
-      });
+    (async () => {
+      setError("");
+
+      // 1) DB: /rutas-activas
+      try {
+        const { data } = await axios.get(`${API_URL}/rutas-activas`, { timeout: 15000 });
+        const arr = Array.isArray(data) ? data : [];
+        const norm = arr.map(normaliza).filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
+        if (norm.length > 0) {
+          setPuntos(norm);
+          return;
+        }
+      } catch (e) {
+        console.warn("DB /rutas-activas error:", e?.message || e);
+      }
+
+      // 2) Fallback JSON estático en public/
+      const rutasJSON = [
+        "/datos/RutasMapaFinal_con_telefono.json",
+        "/data/RutasMapaFinal_con_telefono.json",
+      ];
+      for (const ruta of rutasJSON) {
+        try {
+          const { data } = await axios.get(ruta, { timeout: 15000 });
+          const arr = Array.isArray(data) ? data : [];
+          const norm = arr.map(normaliza).filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
+          if (norm.length > 0) {
+            setPuntos(norm);
+            return;
+          }
+        } catch {
+          // prueba la siguiente ruta
+        }
+      }
+
+      setPuntos([]);
+      setError("No se pudieron cargar puntos ni de la DB ni del archivo local.");
+    })();
   }, []);
 
   const marcadores = useMemo(
-    () =>
-      puntos
-        .map((p) => ({
-          ...p,
-          lat: toNum(p.latitud),
-          lon: toNum(p.longitud),
-        }))
-        .filter((p) => p.lat !== null && p.lon !== null),
+    () => puntos.map((p, i) => ({
+      key: p.id ?? i,
+      lat: p.latitud,
+      lon: p.longitud,
+      nombre: p.nombre,
+      camion: p.camion,
+      dia: p.dia,
+      litros: p.litros,
+      telefono: p.telefono
+    })),
     [puntos]
   );
 
-  // Centro aproximado Laguna Verde / Valparaíso
-  const center = [-33.07, -71.63];
+  const center = [-33.07, -71.63]; // Laguna Verde / Valpo aprox.
 
   return (
     <main style={{ padding: 20 }}>
@@ -58,19 +113,14 @@ export default function Mapa() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution="&copy; OpenStreetMap contributors"
         />
-
-        {marcadores.map((p, i) => (
-          <Marker key={p.id ?? i} position={[p.lat, p.lon]} icon={crearIcono()}>
+        {marcadores.map((m) => (
+          <Marker key={m.key} position={[m.lat, m.lon]} icon={crearIcono()}>
             <Popup>
-              <strong>{p.nombre ?? "Sin nombre"}</strong>
-              <br />
-              Camión: {p.camion ?? "-"}
-              <br />
-              Día: {p.dia ?? "-"}
-              <br />
-              Litros: {p.litros ?? 0}
-              <br />
-              Tel: {p.telefono ?? "-"}
+              <strong>{m.nombre ?? "Sin nombre"}</strong><br />
+              Camión: {m.camion ?? "-"}<br />
+              Día: {m.dia ?? "-"}<br />
+              Litros: {m.litros ?? 0}<br />
+              Tel: {m.telefono ?? "-"}
             </Popup>
           </Marker>
         ))}
