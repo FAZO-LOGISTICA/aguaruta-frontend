@@ -1,10 +1,10 @@
-// src/EditarRedistribucion.js
+// src/EditarRedistribucion.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import API_URL from "./config";
 import "./App.css";
 
-// ---------- Normalizador (mejorado: soporta comas como decimales) ----------
+/* --------------------- Utilidades de normalización --------------------- */
 function toNum(x) {
   if (x === null || x === undefined) return null;
   const s = String(x).trim().replace(",", ".");
@@ -15,7 +15,7 @@ function toNum(x) {
 function normaliza(r, idx) {
   const lat = r.latitud ?? r.lat ?? r.latitude ?? r.Latitud ?? null;
   const lon = r.longitud ?? r.lon ?? r.lng ?? r.longitude ?? r.Longitud ?? null;
-  const diaN =
+  const dia =
     r.dia_asignado ?? r.dia ?? r.DIA ?? r.diaAsignado ?? r.DIA_ASIGNADO ?? null;
 
   return {
@@ -24,14 +24,15 @@ function normaliza(r, idx) {
     nombre: r.nombre ?? r.NOMBRE ?? r.jefe_hogar ?? r.jefe ?? null,
     litros: toNum(r.litros ?? r.LITROS ?? r.litros_de_entrega),
     telefono: r.telefono ?? r.TELEFONO ?? r.phone ?? null,
-    dia: diaN,
+    dia,
     dia_asignado: r.dia_asignado ?? null,
     latitud: toNum(lat),
     longitud: toNum(lon),
   };
 }
 
-const EditarRedistribucion = () => {
+/* --------------------- Componente principal --------------------- */
+export default function EditarRedistribucion() {
   const [filas, setFilas] = useState([]);
   const [camiones, setCamiones] = useState([]);
   const [dias, setDias] = useState([]);
@@ -40,17 +41,18 @@ const EditarRedistribucion = () => {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
 
-  // ---------- Loader híbrido ----------
-  const cargarRedistribucion = async () => {
+  async function cargarRedistribucion() {
     setCargando(true);
     setError("");
 
-    // 1) DB
+    // 1) Intento contra la DB
     try {
       const { data } = await axios.get(`${API_URL}/redistribucion`, { timeout: 15000 });
       const arr = Array.isArray(data) ? data : [];
       if (arr.length > 0) {
-        const filasN = arr.map(normaliza).filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
+        const filasN = arr
+          .map(normaliza)
+          .filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
         if (filasN.length > 0) {
           setFilas(filasN);
           setCamiones([...new Set(filasN.map(p => p.camion))].filter(Boolean).sort());
@@ -63,7 +65,7 @@ const EditarRedistribucion = () => {
       console.warn("DB /redistribucion vacía o error:", e?.message || e);
     }
 
-    // 2) Fallback JSON estático (mismo dominio: public/)
+    // 2) Fallback JSON (mismo dominio; coloca el archivo en /public/datos/ o /public/data/)
     const rutasJSON = [
       "/datos/RutasMapaFinal_con_telefono.json",
       "/data/RutasMapaFinal_con_telefono.json",
@@ -72,7 +74,9 @@ const EditarRedistribucion = () => {
       try {
         const { data } = await axios.get(ruta, { timeout: 15000 });
         const arr = Array.isArray(data) ? data : [];
-        const filasN = arr.map(normaliza).filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
+        const filasN = arr
+          .map(normaliza)
+          .filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
         if (filasN.length > 0) {
           setFilas(filasN);
           setCamiones([...new Set(filasN.map(p => p.camion))].filter(Boolean).sort());
@@ -80,9 +84,7 @@ const EditarRedistribucion = () => {
           setCargando(false);
           return;
         }
-      } catch (e) {
-        // sigue intentando con la siguiente ruta
-      }
+      } catch {/* probará la siguiente ruta */}
     }
 
     // 3) Nada disponible
@@ -91,14 +93,14 @@ const EditarRedistribucion = () => {
     setDias([]);
     setError("No se encontraron datos ni en la DB ni en el JSON de respaldo.");
     setCargando(false);
-  };
+  }
 
   useEffect(() => {
     cargarRedistribucion();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---------- Filtrado en memoria ----------
+  // Filtrado en memoria
   const filasFiltradas = useMemo(() => {
     return filas.filter(f =>
       (selCamion ? f.camion === selCamion : true) &&
@@ -110,15 +112,26 @@ const EditarRedistribucion = () => {
     <div className="main-container fade-in">
       <h2 className="titulo">Editar Redistribución</h2>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "10px", marginBottom: 16 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr auto",
+          gap: 10,
+          marginBottom: 16,
+        }}
+      >
         <select value={selCamion} onChange={(e) => setSelCamion(e.target.value)}>
           <option value="">Todos los camiones</option>
-          {camiones.map(c => <option key={c} value={c}>{c}</option>)}
+          {camiones.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
         </select>
 
         <select value={selDia} onChange={(e) => setSelDia(e.target.value)}>
           <option value="">Todos los días</option>
-          {dias.map(d => <option key={d} value={d}>{d}</option>)}
+          {dias.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
         </select>
 
         <button onClick={cargarRedistribucion} disabled={cargando}>
@@ -126,9 +139,16 @@ const EditarRedistribucion = () => {
         </button>
       </div>
 
-      {error && <div style={{ color: "red", marginBottom: 12 }}>{error}</div>}
+      {error && (
+        <div style={{ color: "red", marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
 
-      <div className="tabla-wrapper" style={{ overflow: "auto", maxHeight: 600, border: "1px solid #eee" }}>
+      <div
+        className="tabla-wrapper"
+        style={{ overflow: "auto", maxHeight: 600, border: "1px solid #eee" }}
+      >
         <table className="tabla">
           <thead>
             <tr>
@@ -155,14 +175,14 @@ const EditarRedistribucion = () => {
             ))}
             {!cargando && filasFiltradas.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ textAlign: "center", padding: 16 }}>Sin resultados</td>
+                <td colSpan={7} style={{ textAlign: "center", padding: 16 }}>
+                  Sin resultados
+                </td>
               </tr>
-            )}
+            ))}
           </tbody>
         </table>
       </div>
     </div>
   );
-};
-
-export default EditarRedistribucion;
+}
