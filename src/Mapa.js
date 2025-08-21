@@ -25,7 +25,8 @@ function normaliza(r, idx) {
 
   return {
     id: r.id ?? idx + 1,
-    camion: r.camion ?? r.CAMION ?? r.camion_asignado ?? null,
+    // 👇 clave extra para el JSON fallback
+    camion: r.camion ?? r.CAMION ?? r.camion_asignado ?? r.id_camion ?? null,
     nombre: r.nombre ?? r.NOMBRE ?? r.jefe_hogar ?? r.jefe ?? null,
     litros: toNum(r.litros ?? r.LITROS ?? r.litros_de_entrega),
     telefono: r.telefono ?? r.TELEFONO ?? r.phone ?? null,
@@ -82,6 +83,9 @@ export default function Mapa() {
     (async () => {
       setError("");
 
+      // 🔥 Warm-up para Render: evita el ERR_FAILED/CORS al primer hit
+      await axios.get(`${API_URL}/health`, { timeout: 8000 }).catch(() => {});
+
       // 1) DB: /rutas-activas
       try {
         const { data } = await axios.get(`${API_URL}/rutas-activas`, { timeout: 15000 });
@@ -123,20 +127,24 @@ export default function Mapa() {
     })();
   }, []);
 
-  const marcadores = useMemo(
-    () =>
-      puntos.map((p, i) => ({
-        key: p.id ?? i,
-        lat: p.latitud,
-        lon: p.longitud,
-        nombre: p.nombre,
-        camion: p.camion,
-        dia: p.dia,
-        litros: p.litros,
-        telefono: p.telefono,
-      })),
-    [puntos]
-  );
+  const marcadores = useMemo(() => {
+    const arr = puntos.map((p, i) => ({
+      key: p.id ?? i,
+      lat: p.latitud,
+      lon: p.longitud,
+      nombre: p.nombre,
+      camion: p.camion,
+      dia: p.dia,
+      litros: p.litros,
+      telefono: p.telefono,
+    }));
+    // (opcional) no-M3 primero, M3 al final para que quede encima
+    return arr.sort((a, b) => {
+      const am3 = String(a.camion || "").toUpperCase() === "M3";
+      const bm3 = String(b.camion || "").toUpperCase() === "M3";
+      return am3 === bm3 ? 0 : am3 ? 1 : -1;
+    });
+  }, [puntos]);
 
   const center = [-33.07, -71.63]; // Laguna Verde / Valpo aprox.
 
@@ -145,7 +153,12 @@ export default function Mapa() {
       <h2 className="titulo">Mapa de Rutas Activas</h2>
       {error && <p style={{ color: "crimson" }}>{error}</p>}
 
-      <MapContainer center={center} zoom={13} style={{ height: "70vh", width: "100%" }}>
+      <MapContainer
+        center={center}
+        zoom={13}
+        style={{ height: "70vh", width: "100%" }}
+        preferCanvas={true}
+      >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution="&copy; OpenStreetMap contributors"
