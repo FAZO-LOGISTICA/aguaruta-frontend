@@ -6,8 +6,6 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import API_URL from "./config";
 import "./App.css";
-
-// Paleta y helper de colores
 import { CAMION_COLORS, CAMION_ORDER, getCamionColor } from "./config/camionColors";
 
 // ---------- util ----------
@@ -25,7 +23,7 @@ function normaliza(r, idx) {
 
   return {
     id: r.id ?? idx + 1,
-    // 👇 clave extra para el JSON fallback
+    // 👇 ahora considera id_camion también
     camion: r.camion ?? r.CAMION ?? r.camion_asignado ?? r.id_camion ?? null,
     nombre: r.nombre ?? r.NOMBRE ?? r.jefe_hogar ?? r.jefe ?? null,
     litros: toNum(r.litros ?? r.LITROS ?? r.litros_de_entrega),
@@ -36,7 +34,6 @@ function normaliza(r, idx) {
   };
 }
 
-// Icono redondo coloreado
 function crearIcono(color = "#007bff", size = 12, border = "#fff") {
   const s = Math.max(8, Math.min(18, Number(size) || 12));
   return new L.DivIcon({
@@ -52,7 +49,7 @@ function crearIcono(color = "#007bff", size = 12, border = "#fff") {
   });
 }
 
-// Control de leyenda (mismos colores que Mapa Redistribución)
+// Leyenda de colores
 function LegendControl() {
   const map = useMap();
   useEffect(() => {
@@ -83,25 +80,23 @@ export default function Mapa() {
     (async () => {
       setError("");
 
-      // 🔥 Warm-up para Render: evita el ERR_FAILED/CORS al primer hit
-      await axios.get(`${API_URL}/health`, { timeout: 8000 }).catch(() => {});
-
-      // 1) DB: /rutas-activas
+      // 1) DB
       try {
         const { data } = await axios.get(`${API_URL}/rutas-activas`, { timeout: 15000 });
         const arr = Array.isArray(data) ? data : [];
-        const norm = arr
-          .map(normaliza)
-          .filter((p) => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
+        const norm = arr.map(normaliza).filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
         if (norm.length > 0) {
           setPuntos(norm);
+          // debug opcional
+          window.__PUNTOS = norm;
+          console.log("Camiones únicos (DB):", [...new Set(norm.map(x => x.camion))]);
           return;
         }
       } catch (e) {
         console.warn("DB /rutas-activas error:", e?.message || e);
       }
 
-      // 2) Fallback JSON estático en public/
+      // 2) Fallback JSON
       const rutasJSON = [
         "/datos/RutasMapaFinal_con_telefono.json",
         "/data/RutasMapaFinal_con_telefono.json",
@@ -110,16 +105,14 @@ export default function Mapa() {
         try {
           const { data } = await axios.get(ruta, { timeout: 15000 });
           const arr = Array.isArray(data) ? data : [];
-          const norm = arr
-            .map(normaliza)
-            .filter((p) => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
+          const norm = arr.map(normaliza).filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
           if (norm.length > 0) {
             setPuntos(norm);
+            window.__PUNTOS = norm;
+            console.log("Camiones únicos (JSON):", [...new Set(norm.map(x => x.camion))]);
             return;
           }
-        } catch {
-          // prueba la siguiente ruta
-        }
+        } catch {}
       }
 
       setPuntos([]);
@@ -127,64 +120,49 @@ export default function Mapa() {
     })();
   }, []);
 
-  const marcadores = useMemo(() => {
-    const arr = puntos.map((p, i) => ({
-      key: p.id ?? i,
-      lat: p.latitud,
-      lon: p.longitud,
-      nombre: p.nombre,
-      camion: p.camion,
-      dia: p.dia,
-      litros: p.litros,
-      telefono: p.telefono,
-    }));
-    // (opcional) no-M3 primero, M3 al final para que quede encima
-    return arr.sort((a, b) => {
-      const am3 = String(a.camion || "").toUpperCase() === "M3";
-      const bm3 = String(b.camion || "").toUpperCase() === "M3";
-      return am3 === bm3 ? 0 : am3 ? 1 : -1;
-    });
-  }, [puntos]);
+  const marcadores = useMemo(
+    () =>
+      puntos.map((p, i) => ({
+        key: p.id ?? i,
+        lat: p.latitud,
+        lon: p.longitud,
+        nombre: p.nombre,
+        camion: p.camion,
+        dia: p.dia,
+        litros: p.litros,
+        telefono: p.telefono,
+      })),
+    [puntos]
+  );
 
-  const center = [-33.07, -71.63]; // Laguna Verde / Valpo aprox.
+  const center = [-33.07, -71.63];
 
   return (
     <main style={{ padding: 20 }}>
       <h2 className="titulo">Mapa de Rutas Activas</h2>
       {error && <p style={{ color: "crimson" }}>{error}</p>}
 
-      <MapContainer
-        center={center}
-        zoom={13}
-        style={{ height: "70vh", width: "100%" }}
-        preferCanvas={true}
-      >
+      <MapContainer center={center} zoom={13} style={{ height: "70vh", width: "100%" }}>
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution="&copy; OpenStreetMap contributors"
         />
 
-        {/* Leyenda de colores por camión */}
         <LegendControl />
 
         {marcadores.map((m) => {
           const cam = String(m.camion || "").toUpperCase();
           const color = getCamionColor(cam);
-          // M3 un poco más grande y borde blanco para que el negro resalte
-          const size = cam === "M3" ? 14 : 12;
+          const size = cam === "M3" ? 14 : 12; // M3 un poco más grande
           const icon = crearIcono(color, size, "#ffffff");
 
           return (
             <Marker key={m.key} position={[m.lat, m.lon]} icon={icon}>
               <Popup>
-                <strong>{m.nombre ?? "Sin nombre"}</strong>
-                <br />
-                Camión: {cam || "-"}
-                <br />
-                Día: {m.dia ?? "-"}
-                <br />
-                Litros: {m.litros ?? 0}
-                <br />
+                <strong>{m.nombre ?? "Sin nombre"}</strong><br />
+                Camión: {cam || "-"}<br />
+                Día: {m.dia ?? "-"}<br />
+                Litros: {m.litros ?? 0}<br />
                 Tel: {m.telefono ?? "-"}
               </Popup>
             </Marker>
@@ -192,7 +170,6 @@ export default function Mapa() {
         })}
       </MapContainer>
 
-      {/* Estilos mínimos de la leyenda */}
       <style>{`
         .legend-camiones{
           background:#fff;padding:6px 8px;border-radius:6px;
