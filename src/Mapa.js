@@ -6,13 +6,40 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import API_URL from "./config";
 import "./App.css";
-import { CAMION_COLORS, CAMION_ORDER, getCamionColor } from "./config/camionColors";
 
-// ---------- util ----------
+/* ---------------- Paleta y helpers en este archivo ---------------- */
+const CAMION_COLORS = {
+  A1: "#1E90FF", // azul
+  A2: "#8A2BE2", // violeta
+  A3: "#32CD32", // verde
+  A4: "#FF7F50", // coral
+  A5: "#FFD700", // dorado
+  M1: "#00CED1", // turquesa
+  M2: "#FF1493", // fucsia
+  M3: "#000000", // negro
+};
+const CAMION_ORDER = ["A1", "A2", "A3", "A4", "A5", "M1", "M2", "M3"];
+
+function normalizeCamion(value) {
+  const s = String(value ?? "").toUpperCase().trim();
+  if (!s) return null;
+  if (CAMION_COLORS[s]) return s;
+  const m = s.match(/\b([AM])\s*-?\s*(\d)\b/);   // A 1, A-1, M 2, etc.
+  if (m) {
+    const key = `${m[1]}${m[2]}`;
+    return CAMION_COLORS[key] ? key : null;
+  }
+  return null;
+}
+function getCamionColor(value) {
+  const key = normalizeCamion(value);
+  return key ? CAMION_COLORS[key] : "#00AEEF"; // fallback celeste
+}
+
+/* ---------------- util ---------------- */
 const toNum = (v) => {
   if (v === null || v === undefined) return null;
-  const s = String(v).trim().replace(",", ".");
-  const n = Number(s);
+  const n = Number(String(v).trim().replace(",", "."));
   return Number.isFinite(n) ? n : null;
 };
 
@@ -23,7 +50,7 @@ function normaliza(r, idx) {
 
   return {
     id: r.id ?? idx + 1,
-    // 👇 ahora considera id_camion también
+    // ⚠️ leemos todas las variantes posibles
     camion: r.camion ?? r.CAMION ?? r.camion_asignado ?? r.id_camion ?? null,
     nombre: r.nombre ?? r.NOMBRE ?? r.jefe_hogar ?? r.jefe ?? null,
     litros: toNum(r.litros ?? r.LITROS ?? r.litros_de_entrega),
@@ -49,7 +76,7 @@ function crearIcono(color = "#007bff", size = 12, border = "#fff") {
   });
 }
 
-// Leyenda de colores
+// Leyenda
 function LegendControl() {
   const map = useMap();
   useEffect(() => {
@@ -58,11 +85,7 @@ function LegendControl() {
     legend.onAdd = () => {
       const div = L.DomUtil.create("div", "legend-camiones");
       div.innerHTML = CAMION_ORDER
-        .filter((k) => CAMION_COLORS[k])
-        .map(
-          (k) =>
-            `<span class="leg-item"><i style="background:${CAMION_COLORS[k]}"></i>${k}</span>`
-        )
+        .map((k) => `<span class="leg-item"><i style="background:${CAMION_COLORS[k]}"></i>${k}</span>`)
         .join(" ");
       return div;
     };
@@ -87,7 +110,6 @@ export default function Mapa() {
         const norm = arr.map(normaliza).filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
         if (norm.length > 0) {
           setPuntos(norm);
-          // debug opcional
           window.__PUNTOS = norm;
           console.log("Camiones únicos (DB):", [...new Set(norm.map(x => x.camion))]);
           return;
@@ -147,15 +169,13 @@ export default function Mapa() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution="&copy; OpenStreetMap contributors"
         />
-
         <LegendControl />
 
         {marcadores.map((m) => {
-          const cam = String(m.camion || "").toUpperCase();
+          const cam = normalizeCamion(m.camion);
           const color = getCamionColor(cam);
-          const size = cam === "M3" ? 14 : 12; // M3 un poco más grande
+          const size = cam === "M3" ? 14 : 12;
           const icon = crearIcono(color, size, "#ffffff");
-
           return (
             <Marker key={m.key} position={[m.lat, m.lon]} icon={icon}>
               <Popup>
