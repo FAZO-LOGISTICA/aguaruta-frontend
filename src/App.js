@@ -11,10 +11,10 @@ import RutasPorCamion from "./RutasPorCamion";
 import RutasActivas from "./RutasActivas";
 import RegistrarEntrega from "./RegistrarEntrega";
 import RegistrarNuevoPunto from "./RegistrarNuevoPunto";
-// ❌ import NuevaDistribucion from "./NuevaDistribucion";  // eliminado
+// ❌ import NuevaDistribucion from "./NuevaDistribucion";
 import NoEntregadas from "./NoEntregadas";
-import MapaRedistribucion from "./MapaRedistribucion";
-import EditarRedistribucion from "./EditarRedistribucion";
+// ❌ import MapaRedistribucion from "./MapaRedistribucion";
+// ❌ import EditarRedistribucion from "./EditarRedistribucion";
 import AdminUsuarios from "./AdminUsuarios";
 import LoginApp from "./LoginApp";
 import EntregasApp from "./EntregasApp";
@@ -26,7 +26,7 @@ const usuariosEjemplo = [
   { username: "operaciones", password: "direccion", role: "editor" }
 ];
 
-// ❗ Menú sin "Nueva Distribución"
+// Menú sin “Nueva Distribución”, sin “Mapa Redistribución” y sin “Editar Redistribución”
 const menuItems = [
   { path: "/", label: "Inicio", roles: ["dios", "editor", "invitado"] },
   { path: "/mapa", label: "Mapa", roles: ["dios", "editor", "invitado"] },
@@ -41,8 +41,8 @@ const menuItems = [
   // ❌ { path: "/nueva-distribucion", label: "Nueva Distribución", roles: ["dios"] },
   { path: "/no-entregadas", label: "No Entregadas", roles: ["dios", "editor"] },
   { path: "/entregas-app", label: "Entregas App", roles: ["dios", "editor"] },
-  { path: "/mapa-redistribucion", label: "Mapa Redistribución", roles: ["dios"] },
-  { path: "/editar-redistribucion", label: "Editar Redistribución", roles: ["dios"] },
+  // ❌ { path: "/mapa-redistribucion", label: "Mapa Redistribución", roles: ["dios"] },
+  // ❌ { path: "/editar-redistribucion", label: "Editar Redistribución", roles: ["dios"] },
   { path: "/usuarios", label: "Usuarios", roles: ["dios"] }
 ];
 
@@ -51,11 +51,8 @@ function App() {
   const [usuarios, setUsuarios] = useState(usuariosEjemplo);
 
   const handleLogin = (username, password, invitado = false) => {
-    if (invitado) {
-      setUsuarioActual({ username: "Invitado", role: "invitado" });
-      return true;
-    }
-    const user = usuarios.find((u) => u.username === username && u.password === password);
+    if (invitado) { setUsuarioActual({ username: "Invitado", role: "invitado" }); return true; }
+    const user = usuarios.find(u => u.username === username && u.password === password);
     if (user) { setUsuarioActual(user); return true; }
     return false;
   };
@@ -86,8 +83,8 @@ function App() {
           <div style={{ maxWidth: 1400, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.2rem 2rem", flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
               {menuItems
-                .filter((item) => item.roles.includes(usuarioActual.role))
-                .map((item) => (
+                .filter(item => item.roles.includes(usuarioActual.role))
+                .map(item => (
                   <Link
                     key={item.path}
                     to={item.path}
@@ -96,9 +93,8 @@ function App() {
                       padding: "0.55rem 0.7rem", borderRadius: "6px", transition: "background 0.2s",
                       background: window.location.pathname === item.path ? "#2c5482" : "transparent", margin: 0, display: "block"
                     }}
-                    onMouseOver={(e) => (e.target.style.background = "#20446d")}
-                    onMouseOut={(e) => (e.target.style.background =
-                      window.location.pathname === item.path ? "#2c5482" : "transparent")}
+                    onMouseOver={e => (e.target.style.background = "#20446d")}
+                    onMouseOut={e => (e.target.style.background = window.location.pathname === item.path ? "#2c5482" : "transparent")}
                   >
                     {item.label}
                   </Link>
@@ -127,9 +123,10 @@ function App() {
 
       <Routes>
         {!usuarioActual ? (
-          <Route path="*" element={
-            <LoginApp onLogin={handleLogin} onInvitado={() => handleLogin(null, null, true)} />
-          } />
+          <Route
+            path="*"
+            element={<LoginApp onLogin={handleLogin} onInvitado={() => handleLogin(null, null, true)} />}
+          />
         ) : (
           <>
             <Route path="/" element={<Inicio />} />
@@ -145,19 +142,24 @@ function App() {
             {/* ❌ <Route path="/nueva-distribucion" element={<NuevaDistribucion />} /> */}
             <Route path="/no-entregadas" element={<NoEntregadas />} />
             <Route path="/entregas-app" element={<EntregasApp />} />
-            <Route path="/mapa-redistribucion" element={<MapaRedistribucion />} />
-            <Route path="/editar-redistribucion" element={<EditarRedistribucion />} />
-            <Route path="/usuarios" element={
-              usuarioActual.role === "dios"
-                ? <AdminUsuarios
+            {/* ❌ <Route path="/mapa-redistribucion" element={<MapaRedistribucion />} /> */}
+            {/* ❌ <Route path="/editar-redistribucion" element={<EditarRedistribucion />} /> */}
+            <Route
+              path="/usuarios"
+              element={
+                usuarioActual.role === "dios" ? (
+                  <AdminUsuarios
                     usuarios={usuarios}
                     setUsuarios={setUsuarios}
                     agregarUsuario={agregarUsuario}
                     eliminarUsuario={eliminarUsuario}
                     cambiarContraseña={cambiarContraseña}
                   />
-                : <Navigate to="/" />
-            } />
+                ) : (
+                  <Navigate to="/" />
+                )
+              }
+            />
             <Route path="*" element={<Navigate to="/" />} />
           </>
         )}
