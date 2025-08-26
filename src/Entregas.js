@@ -9,15 +9,15 @@ import {
 import API_URL from "./config";
 
 // Códigos oficiales:
-// 1 = Entregada
-// 0 = No entrega (con foto)
-// 2 = No entrega (con foto, sin ubicar)
-// 3 = No se ubica domicilio (sin foto)
+// 1 = Entregado
+// 2 = No entregado - No hay moradores (con foto)
+// 3 = No entregado - Dirección no existe (sin foto)
+// 4 = No entregado - Camino malo (con foto)
 const ESTADOS = {
-  1: { texto: "Entregada", colorText: "text-green-600", Icon: FaCheckCircle },
-  0: { texto: "No entrega (con foto)", colorText: "text-red-600", Icon: FaTimesCircle },
-  2: { texto: "No entrega (foto, sin ubicar)", colorText: "text-amber-600", Icon: FaExclamationTriangle },
-  3: { texto: "No se ubica (sin foto)", colorText: "text-gray-600", Icon: FaExclamationTriangle },
+  1: { texto: "Entregado", colorText: "text-green-600", Icon: FaCheckCircle },
+  2: { texto: "No entregado (no hay moradores, con foto)", colorText: "text-amber-600", Icon: FaExclamationTriangle },
+  3: { texto: "No entregado (dirección no existe, sin foto)", colorText: "text-gray-600", Icon: FaExclamationTriangle },
+  4: { texto: "No entregado (camino malo, con foto)", colorText: "text-red-600", Icon: FaTimesCircle },
 };
 
 function EstadoBadge({ estado }) {
@@ -30,6 +30,12 @@ function EstadoBadge({ estado }) {
   );
 }
 
+const normalizar = (s) =>
+  String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
 export default function Entregas() {
   const [fondo, setFondo] = useState("");
   const [data, setData] = useState([]);
@@ -41,12 +47,22 @@ export default function Entregas() {
   const [hasta, setHasta] = useState(hoy);
   const [camion, setCamion] = useState("");
   const [nombre, setNombre] = useState("");
-  const [estado, setEstado] = useState("");
+  const [estado, setEstado] = useState(""); // "": todos | "1".."4"
 
   useEffect(() => {
     const n = Math.floor(Math.random() * 9) + 1;
     setFondo(`/img/valparaiso/valparaiso${n}.jpg`);
   }, []);
+
+  const buildFotoURL = (e) => {
+    const path = e.foto_url || e.foto;
+    if (!path) return null;
+    if (typeof path !== "string") return null;
+    if (path.startsWith("http")) return path;
+    if (path.startsWith("/uploads/")) return `${API_URL}${path}`;
+    // backend guarda "entregas/<uuid>.jpg"
+    return `${API_URL}/uploads/${path}`;
+  };
 
   const fetchEntregas = async () => {
     try {
@@ -56,9 +72,7 @@ export default function Entregas() {
         desde,
         hasta,
         camion: camion || undefined,
-        nombre: nombre || undefined,
-        // importante: conservar el "0" como valor válido
-        estado: estado === "" ? undefined : estado,
+        estado: estado ? Number(estado) : undefined, // backend espera 1..4
       };
       const res = await axios.get(`${API_URL}/entregas`, { params });
       setData(Array.isArray(res.data) ? res.data : []);
@@ -72,19 +86,40 @@ export default function Entregas() {
 
   useEffect(() => { fetchEntregas(); }, []); // carga inicial
 
+  // Filtro por nombre en frontend (case/acentos-insensible)
+  const dataFiltrada = useMemo(() => {
+    const q = normalizar(nombre);
+    return (data || []).filter((r) => {
+      const okNombre = !q || normalizar(r.nombre).includes(q);
+      return okNombre;
+    });
+  }, [data, nombre]);
+
   const totales = useMemo(() => {
     let entregas = 0, litros = 0;
-    for (const r of data) {
+    for (const r of dataFiltrada) {
       if (Number(r.estado) === 1) {
         entregas += 1;
         litros += Number(r.litros || 0);
       }
     }
     return { entregas, litros };
-  }, [data]);
+  }, [dataFiltrada]);
 
   const exportarExcel = () => {
-    const hoja = XLSX.utils.json_to_sheet(data);
+    const exportRows = dataFiltrada.map((e) => ({
+      Fecha: e.fecha ? String(e.fecha).slice(0, 10) : "",
+      Camion: e.camion,
+      Nombre: e.nombre,
+      Litros: e.litros,
+      Estado: ESTADOS[Number(e.estado)]?.texto || e.estado,
+      Telefono: e.telefono || "",
+      Latitud: e.latitud ?? "",
+      Longitud: e.longitud ?? "",
+      Foto: buildFotoURL(e) ? "Sí" : "No",
+      Usuario: e.usuario || e.registrado_por || "",
+    }));
+    const hoja = XLSX.utils.json_to_sheet(exportRows);
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(libro, hoja, "Entregas");
     XLSX.writeFile(libro, `entregas_${desde}_a_${hasta}.xlsx`);
@@ -140,10 +175,10 @@ export default function Entregas() {
               <label className="block text-xs mb-1">Estado</label>
               <select value={estado} onChange={e => setEstado(e.target.value)} className="w-full border rounded px-2 py-2">
                 <option value="">Todos</option>
-                <option value="1">Entregada</option>
-                <option value="0">No entrega (con foto)</option>
-                <option value="2">No entrega (foto, sin ubicar)</option>
-                <option value="3">No se ubica (sin foto)</option>
+                <option value="1">1 — Entregado</option>
+                <option value="2">2 — No hay moradores (con foto)</option>
+                <option value="3">3 — Dirección no existe (sin foto)</option>
+                <option value="4">4 — Camino malo (con foto)</option>
               </select>
             </div>
           </div>
@@ -152,7 +187,7 @@ export default function Entregas() {
             <button onClick={fetchEntregas} disabled={cargando} className="btn primary">
               {cargando ? "Cargando..." : "Buscar"}
             </button>
-            <button onClick={exportarExcel} disabled={!data.length} className="btn">
+            <button onClick={exportarExcel} disabled={!dataFiltrada.length} className="btn">
               Exportar Excel
             </button>
           </div>
@@ -189,8 +224,9 @@ export default function Entregas() {
                 </tr>
               </thead>
               <tbody>
-                {data.map((e, idx) => {
+                {dataFiltrada.map((e, idx) => {
                   const estadoNum = Number(e.estado);
+                  const fotoURL = buildFotoURL(e);
                   return (
                     <tr key={e.id ?? idx} className="border-b border-gray-200 hover:bg-gray-50">
                       <td className="p-3">{fechaStr(e)}</td>
@@ -227,9 +263,9 @@ export default function Entregas() {
                         ) : ""}
                       </td>
                       <td className="p-3">
-                        {e.foto_url ? (
+                        {fotoURL ? (
                           <a
-                            href={e.foto_url}
+                            href={fotoURL}
                             target="_blank" rel="noreferrer"
                             className="inline-flex items-center gap-2 text-blue-700 underline"
                           >
@@ -241,7 +277,7 @@ export default function Entregas() {
                     </tr>
                   );
                 })}
-                {!data.length && !cargando && (
+                {!dataFiltrada.length && !cargando && (
                   <tr><td colSpan="10" className="p-6 text-center text-slate-500">Sin resultados</td></tr>
                 )}
               </tbody>
