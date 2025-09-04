@@ -5,13 +5,36 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import API_URL from "./config";
+import { getCamionColor, normalizeCamion } from "./config/camionColors";
 import "./App.css";
 
-/* ===================== Axios instance ===================== */
+/* ===================== Axios (60s) + warm-up ===================== */
 const api = axios.create({
-  baseURL: API_URL,      // ej: "/api" si usas proxy en Netlify; o "https://aguaruta-backend.onrender.com"
-  timeout: 60000,        // 60s para aguantar el cold start de Render
+  baseURL: API_URL,   // ej: "https://aguaruta-backend.onrender.com" o "/api"
+  timeout: 60000,     // 60s para cold start en Render
 });
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function warmUp() {
+  try { await api.get(`/health`, { timeout: 8000 }); } catch {}
+}
+
+// GET /rutas-activas con warm-up + reintentos exponenciales
+async function fetchRutasActivasConReintentos(intentos = 3) {
+  await warmUp();
+  let delay = 1500;
+  for (let i = 0; i < intentos; i++) {
+    try {
+      const { data } = await api.get(`/rutas-activas`);
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      if (i === intentos - 1) throw e;
+      await sleep(delay);
+      delay *= 2;
+    }
+  }
+}
 
 /* ===================== utils ===================== */
 // normaliza texto (quita tildes y pasa a minúsculas)
@@ -28,35 +51,7 @@ const toNumberOrNull = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function warmUp() {
-  try {
-    await api.get(`/health`, { timeout: 8000 });
-  } catch {}
-}
-
-// GET /rutas-activas con warm-up + reintentos exponenciales (y callback de “despertando”)
-async function fetchRutasActivasConReintentos(intentos = 3, onWaking = null) {
-  await warmUp();
-  let delay = 1500;
-  for (let i = 0; i < intentos; i++) {
-    try {
-      const { data } = await api.get(`/rutas-activas`);
-      return Array.isArray(data) ? data : [];
-    } catch (e) {
-      // Si es timeout o error de red, avisamos que está despertando
-      const isAbort = e?.code === "ECONNABORTED";
-      const noResponse = !e?.response;
-      if (onWaking && (isAbort || noResponse)) onWaking();
-      if (i === intentos - 1) throw e;
-      await sleep(delay);
-      delay *= 2;
-    }
-  }
-}
-
-// normalizar fila (incluye id_camion para compatibilidad)
+// normalizar fila (incluye variantes de nombres de columnas)
 const normalizaFila = (r, idx) => ({
   id: r.id ?? idx + 1,
   camion: r.camion ?? r.CAMION ?? r.camion_asignado ?? r.id_camion ?? "",
@@ -67,6 +62,26 @@ const normalizaFila = (r, idx) => ({
   latitud: toNumberOrNull(r.latitud ?? r.lat ?? r.latitude ?? r.Latitud),
   longitud: toNumberOrNull(r.longitud ?? r.lon ?? r.lng ?? r.longitude ?? r.Longitud),
 });
+
+/* ===================== UI helpers ===================== */
+const ColorDot = ({ camion }) => {
+  const norm = normalizeCamion(camion);
+  const color = getCamionColor(norm);
+  return (
+    <span
+      title={`Camión ${norm || camion || "-"}`}
+      style={{
+        width: 10,
+        height: 10,
+        borderRadius: "50%",
+        background: color,
+        display: "inline-block",
+        border: "1px solid rgba(0,0,0,.25)",
+        marginRight: 6,
+      }}
+    />
+  );
+};
 
 /* ===================== componente ===================== */
 const RutasActivas = () => {
@@ -89,10 +104,9 @@ const RutasActivas = () => {
       setWarning("");
       setSoloLectura(false);
 
+      // 1) backend (con reintentos)
       try {
-        const arr = await fetchRutasActivasConReintentos(3, () => {
-          if (!cancel) setEstado("waking");
-        });
+        const arr = await fetchRutasActivasConReintentos(3);
         if (!cancel) {
           setDatos(arr.map(normalizaFila));
           setEstado("ok");
@@ -102,7 +116,7 @@ const RutasActivas = () => {
         console.warn("Backend /rutas-activas no disponible, uso fallback:", e?.message || e);
       }
 
-      // Fallback JSON local (solo lectura)
+      // 2) fallback JSON local (solo lectura)
       const fallbacks = [
         "/datos/RutasMapaFinal_con_telefono.json",
         "/data/RutasMapaFinal_con_telefono.json",
@@ -177,7 +191,7 @@ const RutasActivas = () => {
     }
 
     try {
-      // Nota: el backend debe exponer PUT /rutas-activas/{id} para que esto funcione
+      // ✅ endpoint: PUT /rutas-activas/{id}
       const { data } = await api.put(`/rutas-activas/${row.id}`, diff);
       console.log("Actualizado:", data);
 
@@ -231,14 +245,16 @@ const RutasActivas = () => {
   if (estado === "idle" || estado === "waking")
     return (
       <div className="main-container fade-in">
-        <p>Despertando backend… puede tardar unos segundos.</p>
+        <h2 className="titulo">Rutas Activas por Camión</h2>
+        <div className="alert alert-info">Despertando backend… puede tardar unos segundos.</div>
       </div>
     );
 
   if (estado === "error")
     return (
       <div className="main-container fade-in">
-        <p>{error || "No se pudieron cargar las rutas."}</p>
+        <h2 className="titulo">Rutas Activas por Camión</h2>
+        <div className="alert alert-error">{error || "No se pudieron cargar las rutas."}</div>
       </div>
     );
 
@@ -307,7 +323,9 @@ const RutasActivas = () => {
                       onChange={(e) => setCambios({ ...cambios, camion: e.target.value })}
                     />
                   ) : (
-                    d.camion
+                    <span className="camion-cell" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <ColorDot camion={d.camion} /> {d.camion}
+                    </span>
                   )}
                 </td>
                 <td>
