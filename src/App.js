@@ -1,7 +1,6 @@
 // src/App.js
 import React, { useEffect, useMemo, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from "react-router-dom";
-import axios from "axios";
 
 import Inicio from "./Inicio";
 import Mapa from "./Mapa";
@@ -16,172 +15,181 @@ import NoEntregadas from "./NoEntregadas";
 import EntregasApp from "./EntregasApp";
 import Entregas from "./Entregas";
 import AdminUsuarios from "./AdminUsuarios";
-// Si no tienes una pantalla Auditoria, comenta la siguiente línea y la ruta.
-// import Auditoria from "./Auditoria";
 import LoginApp from "./LoginApp";
 
-// ===== Permisos disponibles
-const DEFAULT_PERMISOS = {
-  auditoria: false,
-  rutasActivas: true,
-  registrarEntrega: true,
-  entregas: true,
-  registrarPunto: true,
-  graficos: true,
-  mapa: true,
-  estadisticasCamion: true,
-  comparacionSemanal: true,
-  rutasPorCamion: true,
-  noEntregadas: true,
-  entregasApp: true,
+// ---- helpers storage
+const LS_KEY = "usuarios";
+const loadUsers = () => {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+const saveUsers = (arr) => {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(arr));
+  } catch {}
 };
 
-// ===== Usuarios por defecto
-const usuariosPorDefecto = [
-  {
-    username: "che.gustrago",
-    password: "FAZO-LOGISTICA",
-    role: "dios",
-    permisos: Object.fromEntries(Object.keys(DEFAULT_PERMISOS).map(k => [k, true])),
-  },
-  {
-    username: "laguna_verde",
-    password: "delegacion",
-    role: "editor",
-    permisos: { ...DEFAULT_PERMISOS, auditoria: false },
-  },
-  {
-    username: "operaciones",
-    password: "direccion",
-    role: "editor",
-    permisos: { ...DEFAULT_PERMISOS, auditoria: false },
-  },
+// permisos por defecto (mismo set que AdminUsuarios)
+const PERM_KEYS = [
+  "auditoria",
+  "rutasActivas",
+  "registrarEntrega",
+  "entregas",
+  "registrarPunto",
+  "graficos",
+  "mapa",
+  "estadisticasCamion",
+  "comparacionSemanal",
+  "rutasPorCamion",
+  "noEntregadas",
+  "entregasApp",
+];
+const defaultPerms = (role) => {
+  const base = Object.fromEntries(PERM_KEYS.map((k) => [k, false]));
+  if (role === "dios") return Object.fromEntries(PERM_KEYS.map((k) => [k, true]));
+  if (role === "editor")
+    return {
+      ...base,
+      rutasActivas: true,
+      registrarEntrega: true,
+      entregas: true,
+      registrarPunto: true,
+      graficos: true,
+      mapa: true,
+      estadisticasCamion: true,
+      comparacionSemanal: true,
+      rutasPorCamion: true,
+      noEntregadas: true,
+      entregasApp: true,
+    };
+  // invitado
+  return { ...base, mapa: true, graficos: true, estadisticasCamion: true, comparacionSemanal: true };
+};
+
+// usuarios semilla si no hay nada guardado
+const seedUsers = [
+  { username: "che.gustrago", password: "FAZO-LOGISTICA", role: "dios", permisos: defaultPerms("dios") },
+  { username: "laguna_verde", password: "delegacion", role: "editor", permisos: defaultPerms("editor") },
+  { username: "operaciones", password: "direccion", role: "editor", permisos: defaultPerms("editor") },
 ];
 
-// ===== Menú (cada item puede requerir un permiso)
-const MENU = [
-  { path: "/", label: "Inicio" },
-  { path: "/mapa", label: "Mapa", perm: "mapa" },
-  { path: "/graficos", label: "Gráficos", perm: "graficos" },
-  { path: "/estadisticas-camion", label: "Estadísticas Camión", perm: "estadisticasCamion" },
-  { path: "/comparacion-semanal", label: "Comparación Semanal", perm: "comparacionSemanal" },
-  { path: "/rutas-por-camion", label: "Rutas por Camión", perm: "rutasPorCamion" },
-  { path: "/rutas-activas", label: "Ruta Activa", perm: "rutasActivas" },
-  { path: "/registrar-entrega", label: "Registrar Entrega", perm: "registrarEntrega" },
-  { path: "/entregas", label: "Entregas", perm: "entregas" },
-  { path: "/registrar-punto", label: "Registrar Punto", perm: "registrarPunto" },
-  { path: "/no-entregadas", label: "No Entregadas", perm: "noEntregadas" },
-  { path: "/entregas-app", label: "Entregas App", perm: "entregasApp" },
-  { path: "/auditoria", label: "Auditoría", perm: "auditoria" },   // si no usas Auditoría, borra esta línea
-  { path: "/usuarios", label: "Usuarios", onlyRole: "dios" },
+// Menú con clave de permiso por ítem (permKey)
+const menuItems = [
+  { path: "/", label: "Inicio", roles: ["dios", "editor", "invitado"] },
+  { path: "/mapa", label: "Mapa", roles: ["dios", "editor", "invitado"], permKey: "mapa" },
+  { path: "/graficos", label: "Gráficos", roles: ["dios", "editor", "invitado"], permKey: "graficos" },
+  { path: "/estadisticas-camion", label: "Estadísticas Camión", roles: ["dios", "editor", "invitado"], permKey: "estadisticasCamion" },
+  { path: "/comparacion-semanal", label: "Comparación Semanal", roles: ["dios", "editor", "invitado"], permKey: "comparacionSemanal" },
+  { path: "/rutas-por-camion", label: "Rutas por Camión", roles: ["dios", "editor", "invitado"], permKey: "rutasPorCamion" },
+  { path: "/rutas-activas", label: "Ruta Activa", roles: ["dios", "editor"], permKey: "rutasActivas" },
+  { path: "/registrar-entrega", label: "Registrar Entrega", roles: ["dios", "editor"], permKey: "registrarEntrega" },
+  { path: "/entregas", label: "Entregas", roles: ["dios", "editor"], permKey: "entregas" },
+  { path: "/registrar-punto", label: "Registrar Punto", roles: ["dios", "editor"], permKey: "registrarPunto" },
+  { path: "/no-entregadas", label: "No Entregadas", roles: ["dios", "editor"], permKey: "noEntregadas" },
+  { path: "/entregas-app", label: "Entregas App", roles: ["dios", "editor"], permKey: "entregasApp" },
+  // Usuarios solo “dios”
+  { path: "/usuarios", label: "Usuarios", roles: ["dios"] },
 ];
 
 function App() {
-  // ===== Estado de sesión
   const [usuarioActual, setUsuarioActual] = useState(null);
+  const [usuarios, setUsuarios] = useState(() => loadUsers() || seedUsers);
 
-  // ===== Usuarios (persistidos en localStorage)
-  const [usuarios, setUsuarios] = useState(() => {
-    try {
-      const raw = localStorage.getItem("usuarios");
-      return raw ? JSON.parse(raw) : usuariosPorDefecto;
-    } catch {
-      return usuariosPorDefecto;
-    }
-  });
-
+  // persiste siempre que cambie
   useEffect(() => {
-    localStorage.setItem("usuarios", JSON.stringify(usuarios));
+    saveUsers(usuarios);
   }, [usuarios]);
 
-  // ===== Helpers de permisos
-  const isDios = (user) => user?.role === "dios";
-  const can = (user, permKey) => {
-    if (!permKey) return true;
-    if (!user) return false;
-    if (isDios(user)) return true;
-    return !!user.permisos?.[permKey];
-  };
-
-  // ===== Login / Logout
   const handleLogin = (username, password, invitado = false) => {
     if (invitado) {
-      const guest = { username: "Invitado", role: "invitado", permisos: {} };
-      setUsuarioActual(guest);
-      localStorage.setItem("usuario", guest.username);
-      axios.defaults.headers.common["X-User"] = guest.username;
+      setUsuarioActual({ username: "Invitado", role: "invitado", permisos: defaultPerms("invitado") });
       return true;
     }
-    const user = usuarios.find(u => u.username === username && u.password === password);
+    const user = usuarios.find((u) => u.username === username && u.password === password);
     if (user) {
       setUsuarioActual(user);
-      localStorage.setItem("usuario", user.username);
-      axios.defaults.headers.common["X-User"] = user.username;
       return true;
     }
     return false;
   };
 
-  const handleLogout = () => {
-    setUsuarioActual(null);
-    localStorage.removeItem("usuario");
-    delete axios.defaults.headers.common["X-User"];
-  };
+  const handleLogout = () => setUsuarioActual(null);
 
-  // ===== Admin: crear / actualizar / eliminar usuarios (incluye permisos)
   const agregarUsuario = (nuevo) => {
-    if (!nuevo?.username) return alert("Usuario vacío.");
-    if (usuarios.some(u => u.username === nuevo.username)) return alert("Ese usuario ya existe.");
-    const basePerms = nuevo.role === "dios"
-      ? Object.fromEntries(Object.keys(DEFAULT_PERMISOS).map(k => [k, true]))
-      : { ...DEFAULT_PERMISOS, ...nuevo.permisos };
-    setUsuarios([...usuarios, { ...nuevo, permisos: basePerms }]);
+    if (usuarios.find((u) => u.username === nuevo.username)) return alert("Ese usuario ya existe.");
+    setUsuarios([...usuarios, nuevo]);
   };
-
   const eliminarUsuario = (username) => {
-    if (!window.confirm("¿Eliminar usuario?")) return;
-    setUsuarios(usuarios.filter(u => u.username !== username));
+    if (window.confirm("¿Eliminar usuario?")) {
+      setUsuarios(usuarios.filter((u) => u.username !== username));
+    }
+  };
+  const cambiarContraseña = (username, password, role) => {
+    setUsuarios(
+      usuarios.map((u) =>
+        u.username === username ? { ...u, password: password || u.password, role: role || u.role } : u
+      )
+    );
   };
 
-  const actualizarUsuario = (username, cambios = {}) => {
-    setUsuarios(usuarios.map(u => (u.username === username ? { ...u, ...cambios } : u)));
-  };
-
-  // ===== Menú filtrado por permisos
   const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
-  const itemsMenu = useMemo(() => {
+  const menuVisible = useMemo(() => {
     if (!usuarioActual) return [];
-    return MENU.filter(item => {
-      if (item.onlyRole && usuarioActual.role !== item.onlyRole) return false;
-      return can(usuarioActual, item.perm);
+    return menuItems.filter((item) => {
+      if (!item.roles.includes(usuarioActual.role)) return false;
+      if (!item.permKey) return true; // “Usuarios” no tiene permKey
+      // dios siempre ve todo
+      if (usuarioActual.role === "dios") return true;
+      return !!usuarioActual.permisos?.[item.permKey];
     });
-  }, [usuarioActual, pathname]);
-
-  // ===== Gate de rutas (si no puede ver, redirige)
-  const gate = (permKey, element, onlyRole) => {
-    if (!usuarioActual) return <Navigate to="/" replace />;
-    if (onlyRole && usuarioActual.role !== onlyRole) return <Navigate to="/" replace />;
-    if (!can(usuarioActual, permKey)) return <Navigate to="/" replace />;
-    return element;
-  };
+  }, [usuarioActual]);
 
   return (
     <Router>
       {usuarioActual && (
-        <nav style={{ background: "#153a5e", boxShadow: "0 2px 8px #0002", padding: 0, position: "sticky", top: 0, zIndex: 100 }}>
-          <div style={{ maxWidth: 1400, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.2rem 2rem", flexWrap: "wrap" }}>
+        <nav
+          style={{
+            background: "#153a5e",
+            boxShadow: "0 2px 8px #0002",
+            padding: 0,
+            position: "sticky",
+            top: 0,
+            zIndex: 100,
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 1400,
+              margin: "0 auto",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0.2rem 2rem",
+              flexWrap: "wrap",
+            }}
+          >
             <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-              {itemsMenu.map(item => (
+              {menuVisible.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
                   style={{
-                    color: "#fff", textDecoration: "none", fontWeight: 600, fontSize: "1.12rem",
-                    padding: "0.55rem 0.7rem", borderRadius: "6px",
+                    color: "#fff",
+                    textDecoration: "none",
+                    fontWeight: 600,
+                    fontSize: "1.12rem",
+                    padding: "0.55rem 0.7rem",
+                    borderRadius: "6px",
                     background: pathname === item.path ? "#2c5482" : "transparent",
                   }}
-                  onMouseOver={e => (e.target.style.background = "#20446d")}
-                  onMouseOut={e => (e.target.style.background = pathname === item.path ? "#2c5482" : "transparent")}
+                  onMouseOver={(e) => (e.target.style.background = "#20446d")}
+                  onMouseOut={(e) =>
+                    (e.target.style.background = pathname === item.path ? "#2c5482" : "transparent")
+                  }
                 >
                   {item.label}
                 </Link>
@@ -193,9 +201,17 @@ function App() {
               </span>
               <button
                 onClick={handleLogout}
-                style={{ padding: "0.42rem 1rem", borderRadius: "7px", border: "none", background: "#f03a4b", color: "#fff", fontWeight: 600, cursor: "pointer" }}
-                onMouseOver={e => (e.target.style.background = "#B82637")}
-                onMouseOut={e => (e.target.style.background = "#f03a4b")}
+                style={{
+                  padding: "0.42rem 1rem",
+                  borderRadius: "7px",
+                  border: "none",
+                  background: "#f03a4b",
+                  color: "#fff",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+                onMouseOver={(e) => (e.target.style.background = "#B82637")}
+                onMouseOut={(e) => (e.target.style.background = "#f03a4b")}
               >
                 Cerrar sesión
               </button>
@@ -206,38 +222,39 @@ function App() {
 
       <Routes>
         {!usuarioActual ? (
-          <Route path="*" element={<LoginApp onLogin={handleLogin} onInvitado={() => handleLogin(null, null, true)} />} />
+          <Route
+            path="*"
+            element={<LoginApp onLogin={handleLogin} onInvitado={() => handleLogin(null, null, true)} />}
+          />
         ) : (
           <>
             <Route path="/" element={<Inicio />} />
-
-            <Route path="/mapa" element={gate("mapa", <Mapa />)} />
-            <Route path="/graficos" element={gate("graficos", <Graficos />)} />
-            <Route path="/estadisticas-camion" element={gate("estadisticasCamion", <CamionEstadisticas />)} />
-            <Route path="/comparacion-semanal" element={gate("comparacionSemanal", <ComparacionSemanal />)} />
-            <Route path="/rutas-por-camion" element={gate("rutasPorCamion", <RutasPorCamion />)} />
-            <Route path="/rutas-activas" element={gate("rutasActivas", <RutasActivas />)} />
-            <Route path="/registrar-entrega" element={gate("registrarEntrega", <RegistrarEntrega />)} />
-            <Route path="/entregas" element={gate("entregas", <Entregas />)} />
-            <Route path="/registrar-punto" element={gate("registrarPunto", <RegistrarNuevoPunto />)} />
-            <Route path="/no-entregadas" element={gate("noEntregadas", <NoEntregadas />)} />
-            <Route path="/entregas-app" element={gate("entregasApp", <EntregasApp />)} />
-            {/* Si no tienes Auditoría, comenta la siguiente línea */}
-            {/* <Route path="/auditoria" element={gate("auditoria", <Auditoria />)} /> */}
-
+            <Route path="/mapa" element={<Mapa />} />
+            <Route path="/graficos" element={<Graficos />} />
+            <Route path="/estadisticas-camion" element={<CamionEstadisticas />} />
+            <Route path="/comparacion-semanal" element={<ComparacionSemanal />} />
+            <Route path="/rutas-por-camion" element={<RutasPorCamion />} />
+            <Route path="/rutas-activas" element={<RutasActivas />} />
+            <Route path="/registrar-entrega" element={<RegistrarEntrega />} />
+            <Route path="/entregas" element={<Entregas />} />
+            <Route path="/registrar-punto" element={<RegistrarNuevoPunto />} />
+            <Route path="/no-entregadas" element={<NoEntregadas />} />
+            <Route path="/entregas-app" element={<EntregasApp />} />
             <Route
               path="/usuarios"
-              element={gate(null,
-                <AdminUsuarios
-                  usuarios={usuarios}
-                  setUsuarios={setUsuarios}
-                  agregarUsuario={agregarUsuario}
-                  eliminarUsuario={eliminarUsuario}
-                  actualizarUsuario={actualizarUsuario}
-                  defaultPerms={DEFAULT_PERMISOS}
-                />,
-                "dios"
-              )}
+              element={
+                usuarioActual.role === "dios" ? (
+                  <AdminUsuarios
+                    usuarios={usuarios}
+                    setUsuarios={setUsuarios}
+                    agregarUsuario={agregarUsuario}
+                    eliminarUsuario={eliminarUsuario}
+                    cambiarContraseña={cambiarContraseña}
+                  />
+                ) : (
+                  <Navigate to="/" />
+                )
+              }
             />
             <Route path="*" element={<Navigate to="/" />} />
           </>
