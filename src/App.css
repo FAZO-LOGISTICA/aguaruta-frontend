@@ -171,3 +171,12 @@ select, input {
     gap: 0.5rem;
   }
 }
+/* Menú activo legible (texto negro) */
+.nav-pills .nav-link.active,
+.navbar .nav-link.active,
+.menu .active,
+.menu a.active {
+  color: #000 !important;
+  background-color: #e9ecef !important; /* gris claro */
+}
+
