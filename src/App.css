@@ -1,3 +1,4 @@
+/* ====== Base ====== */
 body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -18,13 +19,15 @@ body {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
 }
 
-/* Títulos */
-.titulo {
-  font-size: 2rem;
-  margin-bottom: 1rem;
-  color: #0f172a;
-  font-weight: bold;
+/* ====== Títulos ====== */
+.titulo,
+h1,
+h2.titulo {
+  font-weight: 700;
   text-align: center;
+  color: #000 !important; /* fuerza texto negro para contraste */
+  margin: 0 0 1rem 0;
+  line-height: 1.2;
 }
 
 .subtitulo {
@@ -34,44 +37,62 @@ body {
   color: #1e293b;
 }
 
-/* Tabla */
+/* ====== Tabla ====== */
 .tabla {
   width: 100%;
   border-collapse: collapse;
   margin-top: 1rem;
 }
 
-.tabla th, .tabla td {
-  border: 1px solid #ccc;
+.tabla th,
+.tabla td {
+  border: 1px solid #e5e7eb;
   padding: 0.75rem;
   text-align: center;
 }
 
 .tabla th {
   background-color: #1e293b;
-  color: white;
+  color: #ffffff;
   text-transform: uppercase;
   font-size: 0.9rem;
+  position: sticky;  /* si el contenedor scrollea, el head queda pegado */
+  top: 0;
+  z-index: 1;
 }
 
 .tabla tr:nth-child(even) {
   background-color: #f9fafb;
 }
 
-/* Botones */
+.tabla tbody tr:hover {
+  background: #eef2ff; /* leve highlight al pasar */
+}
+
+/* ====== Botones ====== */
 button {
   padding: 8px 14px;
   margin: 0.5rem 0;
-  border: none;
+  border: 1px solid transparent;
   background-color: #2563eb;
   color: white;
   font-weight: 600;
   border-radius: 6px;
   cursor: pointer;
+  transition: background .15s ease, box-shadow .15s ease, transform .02s ease;
 }
 
 button:hover {
   background-color: #1d4ed8;
+}
+
+button:active {
+  transform: translateY(0.5px);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .botones-exportar {
@@ -80,15 +101,28 @@ button:hover {
   margin-bottom: 1rem;
 }
 
-/* Selects y campos */
-select, input {
+/* ====== Inputs / Selects ====== */
+select,
+input {
   padding: 6px 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
   font-size: 0.95rem;
+  background: #fff;
 }
 
-/* Encabezado con logo */
+input::placeholder {
+  color: #94a3b8;
+}
+
+input:focus,
+select:focus,
+button:focus {
+  outline: 3px solid rgba(37, 99, 235, 0.25);
+  border-color: #2563eb;
+}
+
+/* ====== Encabezado con logo ====== */
 .header {
   display: flex;
   justify-content: center;
@@ -99,13 +133,12 @@ select, input {
   max-height: 60px;
 }
 
-/* Icono de marcador Leaflet */
+/* ====== Leaflet / Mapa ====== */
 .custom-marker {
   background: none;
   border: none;
 }
 
-/* Mapa */
 .leaflet-container {
   height: 70vh;
   width: 100%;
@@ -114,7 +147,95 @@ select, input {
   z-index: 0;
 }
 
-/* Menú de navegación */
+/* Leyenda de camiones (Mapa) */
+.legend-camiones {
+  background: #fff;
+  padding: 6px 8px;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+  font: 12px/14px system-ui, Arial, sans-serif;
+}
+
+.legend-camiones .leg-item {
+  margin-right: 10px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.legend-camiones i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+  border: 1px solid rgba(0,0,0,.25);
+}
+
+/* Barra de filtros de camión (chips) */
+.filtros-camion {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+
+.filtros-camion .fila-1 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filtros-camion .acciones button {
+  margin-right: 6px;
+}
+
+.filtros-camion .buscador {
+  padding: 6px 8px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+}
+
+.filtros-camion .contador {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: .8;
+}
+
+.chips {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  border: 1px solid #d0d7de;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip.on {
+  background: #e9ecef;
+}
+
+.chip i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(0,0,0,.25);
+}
+
+/* ====== Menú de navegación ====== */
 .nav-menu {
   display: flex;
   justify-content: center;
@@ -124,23 +245,64 @@ select, input {
   font-weight: 600;
 }
 
-/* Animación fade-in */
-@keyframes fadeInUp {
-  0% {
-    opacity: 0;
-    transform: translateY(15px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Links genéricos del menú (si no usas Bootstrap) */
+.nav-menu a {
+  color: #1e293b;
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 8px;
 }
 
+.nav-menu a:hover {
+  background: #eef2ff;
+}
+
+/* Menú activo legible (texto negro) */
+.nav-pills .nav-link.active,
+.navbar .nav-link.active,
+.menu .active,
+.menu a.active,
+.nav-menu a.active {
+  color: #000 !important;
+  background-color: #e9ecef !important; /* gris claro */
+}
+
+/* ====== Alertas / avisos ====== */
+.alert {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  margin: 8px 0;
+}
+
+.alert-info {
+  background: #e0f2fe;
+  border-color: #bae6fd;
+  color: #0c4a6e;
+}
+
+.alert-warning {
+  background: #fff6e5;
+  border-color: #ffe4b5;
+  color: #7a4e00;
+}
+
+.alert-error {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #7f1d1d;
+}
+
+/* ====== Animación fade-in ====== */
+@keyframes fadeInUp {
+  0% { opacity: 0; transform: translateY(15px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
 .fade-in {
   animation: fadeInUp 0.6s ease-in-out;
 }
 
-/* Responsividad */
+/* ====== Responsividad ====== */
 @media (max-width: 768px) {
   .main-container {
     padding: 1rem;
@@ -170,13 +332,8 @@ select, input {
     flex-direction: column;
     gap: 0.5rem;
   }
-}
-/* Menú activo legible (texto negro) */
-.nav-pills .nav-link.active,
-.navbar .nav-link.active,
-.menu .active,
-.menu a.active {
-  color: #000 !important;
-  background-color: #e9ecef !important; /* gris claro */
-}
 
+  .leaflet-container {
+    height: 60vh;
+  }
+}
