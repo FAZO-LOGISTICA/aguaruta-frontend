@@ -24,9 +24,7 @@ async function fetchExistingCamiones() {
     const { data } = await api.get("/camiones?only_active=false");
     if (Array.isArray(data)) {
       const set = new Set(
-        data
-          .map((c) => (c?.codigo ?? "").toString().toUpperCase())
-          .filter(Boolean)
+        data.map((c) => (c?.codigo ?? "").toString().toUpperCase()).filter(Boolean)
       );
       return set;
     }
@@ -62,6 +60,7 @@ export default function CamionColorPicker({ camion = "", onChangeCamion }) {
   const norm = useMemo(() => normalizeCamion(camion) || "", [camion]);
   const [color, setColor] = useState("#888888");
   const [checking, setChecking] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [available, setAvailable] = useState(null); // null | true | false
   const [existing, setExisting] = useState(new Set());
 
@@ -75,7 +74,6 @@ export default function CamionColorPicker({ camion = "", onChangeCamion }) {
     (async () => {
       const set = await fetchExistingCamiones();
       setExisting(set);
-      // si ya hay un código escrito, verifica de una
       if (norm) setAvailable(!set.has(norm));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -101,19 +99,24 @@ export default function CamionColorPicker({ camion = "", onChangeCamion }) {
   async function crearEnBackend() {
     if (!norm) return alert("Código inválido");
     try {
+      setCreating(true);
       await api.post("/camiones", {
         codigo: norm,
         nombre: null,
         capacidad_litros: null,
         activo: true,
       });
-      alert(`Camión ${norm} creado/actualizado en backend`);
+      // Después de crear, vuelve a verificar y marca como no disponible
       await verify();
+      setAvailable(false);
+      alert(`Camión ${norm} creado/actualizado en backend`);
     } catch (e) {
       alert(
         e?.response?.data?.detail ||
           "No se pudo crear en backend. ¿Tienes /camiones implementado?"
       );
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -175,8 +178,8 @@ export default function CamionColorPicker({ camion = "", onChangeCamion }) {
           Guardar color
         </button>
 
-        <button type="button" onClick={crearEnBackend} disabled={!norm}>
-          Crear en backend
+        <button type="button" onClick={crearEnBackend} disabled={!norm || creating}>
+          {creating ? "Creando…" : "Crear en backend"}
         </button>
       </div>
 
