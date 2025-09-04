@@ -5,38 +5,37 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import API_URL from "./config";
+import { getCamionColor, normalizeCamion } from "./config/camionColors";
 import "./App.css";
 
-/* ---------------- Paleta y helpers en este archivo ---------------- */
-const CAMION_COLORS = {
-  A1: "#1E90FF", // azul
-  A2: "#8A2BE2", // violeta
-  A3: "#32CD32", // verde
-  A4: "#FF7F50", // coral
-  A5: "#FFD700", // dorado
-  M1: "#00CED1", // turquesa
-  M2: "#FF1493", // fucsia
-  M3: "#000000", // negro
-};
-const CAMION_ORDER = ["A1", "A2", "A3", "A4", "A5", "M1", "M2", "M3"];
+/* ================= Axios con warm-up (evita timeout por cold start) ================= */
+const api = axios.create({
+  baseURL: API_URL,   // p.ej. "https://aguaruta-backend.onrender.com"
+  timeout: 60000,     // 60s para Render frío
+});
 
-function normalizeCamion(value) {
-  const s = String(value ?? "").toUpperCase().trim();
-  if (!s) return null;
-  if (CAMION_COLORS[s]) return s;
-  const m = s.match(/\b([AM])\s*-?\s*(\d)\b/);   // A 1, A-1, M 2, etc.
-  if (m) {
-    const key = `${m[1]}${m[2]}`;
-    return CAMION_COLORS[key] ? key : null;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function warmUp() {
+  try { await api.get("/health", { timeout: 8000 }); } catch {}
+}
+
+async function fetchRutasActivas(intentos = 3) {
+  await warmUp();
+  let delay = 1500;
+  for (let i = 0; i < intentos; i++) {
+    try {
+      const { data } = await api.get("/rutas-activas");
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      if (i === intentos - 1) throw e;
+      await sleep(delay);
+      delay *= 2;
+    }
   }
-  return null;
-}
-function getCamionColor(value) {
-  const key = normalizeCamion(value);
-  return key ? CAMION_COLORS[key] : "#00AEEF"; // fallback celeste
 }
 
-/* ---------------- util ---------------- */
+/* ================= Utils ================= */
 const toNum = (v) => {
   if (v === null || v === undefined) return null;
   const n = Number(String(v).trim().replace(",", "."));
@@ -50,7 +49,6 @@ function normaliza(r, idx) {
 
   return {
     id: r.id ?? idx + 1,
-    // ⚠️ leemos todas las variantes posibles
     camion: r.camion ?? r.CAMION ?? r.camion_asignado ?? r.id_camion ?? null,
     nombre: r.nombre ?? r.NOMBRE ?? r.jefe_hogar ?? r.jefe ?? null,
     litros: toNum(r.litros ?? r.LITROS ?? r.litros_de_entrega),
@@ -76,49 +74,55 @@ function crearIcono(color = "#007bff", size = 12, border = "#fff") {
   });
 }
 
-// Leyenda
-function LegendControl() {
+/* ================= Leyenda ================= */
+function LegendControl({ items }) {
   const map = useMap();
+
   useEffect(() => {
     if (!map) return;
     const legend = L.control({ position: "bottomleft" });
     legend.onAdd = () => {
       const div = L.DomUtil.create("div", "legend-camiones");
-      div.innerHTML = CAMION_ORDER
-        .map((k) => `<span class="leg-item"><i style="background:${CAMION_COLORS[k]}"></i>${k}</span>`)
+      div.innerHTML = items
+        .map(({ camion, color }) => `<span class="leg-item"><i style="background:${color}"></i>${camion}</span>`)
         .join(" ");
       return div;
     };
     legend.addTo(map);
     return () => legend.remove();
-  }, [map]);
+  }, [map, items]);
+
   return null;
 }
 
+/* ================= Componente ================= */
 export default function Mapa() {
   const [puntos, setPuntos] = useState([]);
   const [error, setError] = useState("");
+
+  // --- filtros por camión ---
+  const [selected, setSelected] = useState(new Set()); // set de códigos normalizados (A1, M4, etc.)
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     (async () => {
       setError("");
 
-      // 1) DB
+      // 1) DB con warm-up + reintentos
       try {
-        const { data } = await axios.get(`${API_URL}/rutas-activas`, { timeout: 15000 });
-        const arr = Array.isArray(data) ? data : [];
-        const norm = arr.map(normaliza).filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
+        const arr = await fetchRutasActivas(3);
+        const norm = arr.map(normaliza)
+          .filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
         if (norm.length > 0) {
           setPuntos(norm);
           window.__PUNTOS = norm;
-          console.log("Camiones únicos (DB):", [...new Set(norm.map(x => x.camion))]);
           return;
         }
       } catch (e) {
         console.warn("DB /rutas-activas error:", e?.message || e);
       }
 
-      // 2) Fallback JSON
+      // 2) Fallback JSON local
       const rutasJSON = [
         "/datos/RutasMapaFinal_con_telefono.json",
         "/data/RutasMapaFinal_con_telefono.json",
@@ -127,11 +131,11 @@ export default function Mapa() {
         try {
           const { data } = await axios.get(ruta, { timeout: 15000 });
           const arr = Array.isArray(data) ? data : [];
-          const norm = arr.map(normaliza).filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
+          const norm = arr.map(normaliza)
+            .filter(p => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
           if (norm.length > 0) {
             setPuntos(norm);
             window.__PUNTOS = norm;
-            console.log("Camiones únicos (JSON):", [...new Set(norm.map(x => x.camion))]);
             return;
           }
         } catch {}
@@ -149,13 +153,56 @@ export default function Mapa() {
         lat: p.latitud,
         lon: p.longitud,
         nombre: p.nombre,
-        camion: p.camion,
+        camion: normalizeCamion(p.camion), // <- normalizado (A6, M4, etc.)
         dia: p.dia,
         litros: p.litros,
         telefono: p.telefono,
       })),
     [puntos]
   );
+
+  // Lista de camiones únicos (orden natural A1 < A2 < A10)
+  const allCamiones = useMemo(() => {
+    const set = new Set();
+    for (const m of marcadores) if (m.camion) set.add(m.camion);
+    return [...set].sort((a, b) => a.localeCompare(b, "es", { numeric: true }));
+  }, [marcadores]);
+
+  // Inicializa selección con "todos" cuando llegan datos
+  useEffect(() => {
+    if (allCamiones.length && selected.size === 0) {
+      setSelected(new Set(allCamiones));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCamiones.length]);
+
+  // Acciones filtro
+  const toggleCamion = (c) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(c)) next.delete(c); else next.add(c);
+      return next;
+    });
+  };
+  const selectAll = () => setSelected(new Set(allCamiones));
+  const selectNone = () => setSelected(new Set());
+  const invert = () => {
+    const next = new Set();
+    allCamiones.forEach(c => { if (!selected.has(c)) next.add(c); });
+    setSelected(next);
+  };
+
+  // Aplica filtro al conjunto de marcadores
+  const filteredMarcadores = useMemo(() => {
+    if (!selected.size) return [];
+    return marcadores.filter(m => selected.has(m.camion));
+  }, [marcadores, selected]);
+
+  // Leyenda: muestra solo los seleccionados (o todos si no hay filtros)
+  const legendItems = useMemo(() => {
+    const base = selected.size ? allCamiones.filter(c => selected.has(c)) : allCamiones;
+    return base.map(c => ({ camion: c, color: getCamionColor(c) }));
+  }, [allCamiones, selected]);
 
   const center = [-33.07, -71.63];
 
@@ -164,23 +211,64 @@ export default function Mapa() {
       <h2 className="titulo">Mapa de Rutas Activas</h2>
       {error && <p style={{ color: "crimson" }}>{error}</p>}
 
-      <MapContainer center={center} zoom={13} style={{ height: "70vh", width: "100%" }}>
+      {/* ====== Barra de filtros por camión ====== */}
+      <div className="filtros-camion">
+        <div className="fila-1">
+          <strong>Filtrar por camión:</strong>
+          <div className="acciones">
+            <button onClick={selectAll}>Todos</button>
+            <button onClick={selectNone}>Ninguno</button>
+            <button onClick={invert}>Invertir</button>
+          </div>
+          <input
+            className="buscador"
+            placeholder="Buscar (ej. A, M4)"
+            value={query}
+            onChange={(e) => setQuery(e.target.value.toUpperCase())}
+          />
+          <span className="contador">
+            Mostrando {filteredMarcadores.length} / {marcadores.length} puntos
+          </span>
+        </div>
+
+        <div className="chips">
+          {allCamiones
+            .filter(c => !query || c.includes(query))
+            .map(c => {
+              const on = selected.has(c);
+              const color = getCamionColor(c);
+              return (
+                <button
+                  key={c}
+                  className={`chip ${on ? "on" : ""}`}
+                  title={`Camión ${c}`}
+                  onClick={() => toggleCamion(c)}
+                >
+                  <i style={{ background: color }} /> {c}
+                </button>
+              );
+            })}
+        </div>
+      </div>
+
+      <MapContainer center={center} zoom={13} style={{ height: "64vh", width: "100%" }}>
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution="&copy; OpenStreetMap contributors"
         />
-        <LegendControl />
 
-        {marcadores.map((m) => {
-          const cam = normalizeCamion(m.camion);
-          const color = getCamionColor(cam);
-          const size = cam === "M3" ? 14 : 12;
+        {/* Leyenda dinámica según selección */}
+        <LegendControl items={legendItems} />
+
+        {filteredMarcadores.map((m) => {
+          const color = getCamionColor(m.camion);
+          const size = m.camion === "M3" ? 14 : 12; // ejemplo: M3 más grande
           const icon = crearIcono(color, size, "#ffffff");
           return (
             <Marker key={m.key} position={[m.lat, m.lon]} icon={icon}>
               <Popup>
                 <strong>{m.nombre ?? "Sin nombre"}</strong><br />
-                Camión: {cam || "-"}<br />
+                Camión: {m.camion || "-"}<br />
                 Día: {m.dia ?? "-"}<br />
                 Litros: {m.litros ?? 0}<br />
                 Tel: {m.telefono ?? "-"}
@@ -200,6 +288,23 @@ export default function Mapa() {
           width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;
           border:1px solid rgba(0,0,0,.25);
         }
+
+        .filtros-camion { 
+          background:#fff; border:1px solid #e5e7eb; padding:10px; border-radius:8px; 
+          margin-bottom:10px; box-shadow:0 1px 2px rgba(0,0,0,.04);
+        }
+        .filtros-camion .fila-1 { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+        .filtros-camion .acciones button { margin-right:6px; }
+        .filtros-camion .buscador { padding:6px 8px; border:1px solid #d0d7de; border-radius:6px; }
+        .filtros-camion .contador { margin-left:auto; font-size:12px; opacity:.8; }
+
+        .chips { margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; }
+        .chip { 
+          border:1px solid #d0d7de; padding:4px 8px; border-radius:999px; 
+          background:#fff; cursor:pointer; font-size:12px; display:inline-flex; align-items:center; gap:6px;
+        }
+        .chip.on { background:#e9ecef; }
+        .chip i { width:10px; height:10px; border-radius:50%; display:inline-block; border:1px solid rgba(0,0,0,.25); }
       `}</style>
     </main>
   );
