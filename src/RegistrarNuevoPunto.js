@@ -13,25 +13,39 @@ const initForm = {
   dia: "" // opcional
 };
 
+// --- helpers ---
+const toFloat = (v) => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(String(v).trim().replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+};
+const toInt = (v) => {
+  const f = toFloat(v);
+  return f === null ? null : Math.round(f);
+};
+const validCoords = (lat, lon) =>
+  lat !== null && lon !== null && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+
+// normaliza como en backend: "M 6" / "M-6" → "M6"
+const normalizeOverride = (s) => {
+  if (!s) return null;
+  const t = String(s).toUpperCase().trim().replace(/\s*-\s*/g, "").replace(/\s+/g, "");
+  // acepta A/M + 1..99
+  return /^[AM]\d{1,2}$/.test(t) ? t : t; // lo envío igual; backend también normaliza
+};
+
+const api = axios.create({ baseURL: API_URL, timeout: 20000 });
+const warmUp = async () => {
+  try { await api.get("/health", { timeout: 6000 }); } catch {}
+};
+
 export default function RegistrarNuevoPunto() {
   const [form, setForm] = useState(initForm);
-  const [camion, setCamion] = useState(""); // ✅ NUEVO: camión opcional (A6, M6, etc.)
+  const [camion, setCamion] = useState(""); // ✅ camión opcional (A6, M6, etc.)
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null);
   const [err, setErr] = useState(null);
   const [resp, setResp] = useState(null);
-
-  const toFloat = (v) => {
-    if (v === null || v === undefined || v === "") return null;
-    const n = Number(String(v).trim().replace(",", "."));
-    return Number.isFinite(n) ? n : null;
-  };
-  const toInt = (v) => {
-    const f = toFloat(v);
-    return f === null ? null : Math.round(f);
-  };
-  const validCoords = (lat, lon) =>
-    lat !== null && lon !== null && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -51,25 +65,24 @@ export default function RegistrarNuevoPunto() {
       latitud: toFloat(form.latitud),
       longitud: toFloat(form.longitud),
       dia: (form.dia || "").trim() || null, // opcional, si no va, backend usa el del vecino
-      // ✅ NUEVO: permite forzar camión si escribes M6/M7/A6… (si backend no lo usa, lo ignora)
-      camion_override: camion?.trim().toUpperCase() || null,
+      camion_override: normalizeOverride(camion) || null,
     };
 
+    // validaciones mínimas
     if (!payload.nombre) return setErr("Ingresa un nombre.");
     if (!payload.litros || payload.litros <= 0) return setErr("Litros debe ser un número > 0.");
     if (!validCoords(payload.latitud, payload.longitud)) return setErr("Coordenadas fuera de rango.");
 
     try {
       setLoading(true);
-      const { data } = await axios.post(
-        `${API_URL}/registrar-nuevo-punto-auto`,
-        payload,
-        { timeout: 20000 }
-      );
+      await warmUp(); // ayuda con Render en frío
+
+      const { data } = await api.post("/registrar-nuevo-punto-auto", payload);
       setResp(data);
+
       if (data?.ok) {
         setMsg(
-          `Registrado. Camión: ${data.asignacion?.camion ?? "-"} | Día: ${data.asignacion?.dia ?? "-"} | ID: ${data.id}`
+          `Registrado. Camión: ${data.asignacion?.camion ?? "-"} | Día: ${data.asignacion?.dia ?? "-"} | ID: ${data.id ?? "(s/ID)"}`
         );
         // Limpia (deja coords para registrar varios en la misma zona)
         setForm((f) => ({ ...initForm, latitud: f.latitud, longitud: f.longitud }));
@@ -79,6 +92,7 @@ export default function RegistrarNuevoPunto() {
       }
     } catch (e2) {
       const det = e2?.response?.data?.detail || e2?.message || "Error desconocido";
+      // pista típica: si es 404, faltan endpoints en backend
       setErr(`Error: ${det}`);
     } finally {
       setLoading(false);
@@ -184,7 +198,7 @@ export default function RegistrarNuevoPunto() {
             </label>
           </div>
 
-          {/* === NUEVO BLOQUE: CAMIÓN (opcional) con color/verificación/sugerencia === */}
+          {/* === CAMIÓN (opcional) con color/verificación/sugerencia === */}
           <div
             style={{
               marginTop: 12,
@@ -199,9 +213,8 @@ export default function RegistrarNuevoPunto() {
             </label>
             <CamionColorPicker camion={camion} onChangeCamion={setCamion} />
             <small style={{ opacity: 0.75 }}>
-              Si lo dejas vacío, el backend mantendrá el comportamiento actual:
-              copiará <b>camión y día</b> del punto más cercano en <code>ruta_activa</code>.  
-              Si escribes por ejemplo <b>M6</b>, se intentará usar ese camión para este punto.
+              Si lo dejas vacío, el backend copiará <b>camión y día</b> del punto más cercano en <code>ruta_activa</code>.{" "}
+              Si escribes, por ejemplo <b>M6</b>, se usará ese camión para este punto.
             </small>
           </div>
 
@@ -225,7 +238,6 @@ export default function RegistrarNuevoPunto() {
             {err}
           </div>
         )}
-
         {resp && (
           <pre style={{ marginTop: 12, background: "#f7f7f7", padding: 10, borderRadius: 6, overflowX: "auto" }}>
 {JSON.stringify(resp, null, 2)}
