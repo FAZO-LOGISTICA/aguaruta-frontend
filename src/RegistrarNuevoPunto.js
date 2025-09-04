@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import API_URL from "./config";
+import CamionColorPicker from "./components/CamionColorPicker";
 
 const initForm = {
   nombre: "",
@@ -14,6 +15,7 @@ const initForm = {
 
 export default function RegistrarNuevoPunto() {
   const [form, setForm] = useState(initForm);
+  const [camion, setCamion] = useState(""); // ✅ NUEVO: camión opcional (A6, M6, etc.)
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null);
   const [err, setErr] = useState(null);
@@ -49,6 +51,8 @@ export default function RegistrarNuevoPunto() {
       latitud: toFloat(form.latitud),
       longitud: toFloat(form.longitud),
       dia: (form.dia || "").trim() || null, // opcional, si no va, backend usa el del vecino
+      // ✅ NUEVO: permite forzar camión si escribes M6/M7/A6… (si backend no lo usa, lo ignora)
+      camion_override: camion?.trim().toUpperCase() || null,
     };
 
     if (!payload.nombre) return setErr("Ingresa un nombre.");
@@ -57,7 +61,11 @@ export default function RegistrarNuevoPunto() {
 
     try {
       setLoading(true);
-      const { data } = await axios.post(`${API_URL}/registrar-nuevo-punto-auto`, payload, { timeout: 20000 });
+      const { data } = await axios.post(
+        `${API_URL}/registrar-nuevo-punto-auto`,
+        payload,
+        { timeout: 20000 }
+      );
       setResp(data);
       if (data?.ok) {
         setMsg(
@@ -65,6 +73,7 @@ export default function RegistrarNuevoPunto() {
         );
         // Limpia (deja coords para registrar varios en la misma zona)
         setForm((f) => ({ ...initForm, latitud: f.latitud, longitud: f.longitud }));
+        setCamion(""); // limpia el campo camión también
       } else {
         setErr(data?.mensaje || "No se pudo registrar el punto.");
       }
@@ -78,6 +87,7 @@ export default function RegistrarNuevoPunto() {
 
   const limpiar = () => {
     setForm(initForm);
+    setCamion("");
     setMsg(null);
     setErr(null);
     setResp(null);
@@ -172,6 +182,27 @@ export default function RegistrarNuevoPunto() {
                 style={{ width: "100%" }}
               />
             </label>
+          </div>
+
+          {/* === NUEVO BLOQUE: CAMIÓN (opcional) con color/verificación/sugerencia === */}
+          <div
+            style={{
+              marginTop: 12,
+              border: "1px solid #e5e7eb",
+              borderRadius: 8,
+              padding: 12,
+              background: "#fff"
+            }}
+          >
+            <label style={{ fontWeight: 600, marginBottom: 6, display: "block" }}>
+              Camión (opcional)
+            </label>
+            <CamionColorPicker camion={camion} onChangeCamion={setCamion} />
+            <small style={{ opacity: 0.75 }}>
+              Si lo dejas vacío, el backend mantendrá el comportamiento actual:
+              copiará <b>camión y día</b> del punto más cercano en <code>ruta_activa</code>.  
+              Si escribes por ejemplo <b>M6</b>, se intentará usar ese camión para este punto.
+            </small>
           </div>
 
           <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
