@@ -1,20 +1,49 @@
 // src/LoginApp.js
-import React, { useState } from 'react';
+import React, { useEffect, useState } from "react";
 
-const LoginApp = ({ onLogin, onInvitado }) => {
+const LS_LAST_USER = "lastUser";
+
+export default function LoginApp({ onLogin, onInvitado }) {
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
   const [mostrarPass, setMostrarPass] = useState(false);
+  const [capsOn, setCapsOn] = useState(false);
+  const [recordar, setRecordar] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleLogin = (e) => {
+  // precargar último usuario recordado
+  useEffect(() => {
+    try {
+      const u = localStorage.getItem(LS_LAST_USER);
+      if (u) setUsuario(u);
+    } catch {}
+  }, []);
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const user = usuario.trim();
-    const ok = onLogin(user, password);
-    setError(ok ? "" : "Usuario o contraseña incorrectos.");
+    setError("");
+    if (loading) return;
+
+    try {
+      setLoading(true);
+      const ok = await onLogin(String(usuario).trim(), password);
+      if (ok) {
+        if (recordar) {
+          try { localStorage.setItem(LS_LAST_USER, String(usuario).trim()); } catch {}
+        } else {
+          try { localStorage.removeItem(LS_LAST_USER); } catch {}
+        }
+      } else {
+        setError("Usuario o contraseña incorrectos.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loginInvitado = () => {
+    if (loading) return;
     onInvitado();
     setError("");
   };
@@ -28,7 +57,7 @@ const LoginApp = ({ onLogin, onInvitado }) => {
         justifyContent: "center",
         background: "#f2f2fa",
         flexDirection: "column",
-        padding: 16
+        padding: 16,
       }}
     >
       <div
@@ -39,10 +68,10 @@ const LoginApp = ({ onLogin, onInvitado }) => {
           boxShadow: "0 2px 18px #0002",
           minWidth: 340,
           maxWidth: 420,
-          width: "100%"
+          width: "100%",
         }}
       >
-        <h2 style={{ textAlign: "center", marginBottom: 24 }}>Iniciar Sesión</h2>
+        <h2 style={{ textAlign: "center", marginBottom: 24 }}>Iniciar sesión</h2>
 
         <form onSubmit={handleLogin} autoComplete="on">
           <div style={{ marginBottom: 12 }}>
@@ -65,12 +94,12 @@ const LoginApp = ({ onLogin, onInvitado }) => {
                 width: "100%",
                 padding: 8,
                 borderRadius: 5,
-                border: "1px solid #aaa"
+                border: "1px solid #aaa",
               }}
             />
           </div>
 
-          <div style={{ marginBottom: 12 }}>
+          <div style={{ marginBottom: 8 }}>
             <label htmlFor="login-password" style={{ display: "block", marginBottom: 6 }}>
               Contraseña
             </label>
@@ -81,13 +110,14 @@ const LoginApp = ({ onLogin, onInvitado }) => {
                 type={mostrarPass ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyUp={(e) => setCapsOn(e.getModifierState && e.getModifierState("CapsLock"))}
                 required
                 autoComplete="current-password"
                 style={{
                   width: "100%",
                   padding: "8px 38px 8px 8px",
                   borderRadius: 5,
-                  border: "1px solid #aaa"
+                  border: "1px solid #aaa",
                 }}
               />
               <button
@@ -105,13 +135,28 @@ const LoginApp = ({ onLogin, onInvitado }) => {
                   borderRadius: 6,
                   padding: "4px 8px",
                   cursor: "pointer",
-                  fontSize: 12
+                  fontSize: 12,
                 }}
               >
                 {mostrarPass ? "Ocultar" : "Ver"}
               </button>
             </div>
           </div>
+
+          {capsOn && (
+            <div style={{ color: "#b45309", fontSize: 12, marginBottom: 8 }}>
+              Bloq Mayús está activado.
+            </div>
+          )}
+
+          <label style={{ display: "inline-flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+            <input
+              type="checkbox"
+              checked={recordar}
+              onChange={(e) => setRecordar(e.target.checked)}
+            />
+            Recordarme
+          </label>
 
           {error && (
             <div
@@ -124,9 +169,10 @@ const LoginApp = ({ onLogin, onInvitado }) => {
 
           <button
             type="submit"
+            disabled={loading}
             style={{
               width: "100%",
-              background: "#2563eb",
+              background: loading ? "#4f79e6" : "#2563eb",
               color: "white",
               padding: 10,
               borderRadius: 5,
@@ -134,16 +180,18 @@ const LoginApp = ({ onLogin, onInvitado }) => {
               border: "none",
               marginBottom: 8,
               fontSize: "1.05em",
-              cursor: "pointer"
+              cursor: loading ? "default" : "pointer",
+              opacity: loading ? 0.85 : 1,
             }}
           >
-            Ingresar
+            {loading ? "Ingresando..." : "Ingresar"}
           </button>
         </form>
 
         <button
           type="button"
           onClick={loginInvitado}
+          disabled={loading}
           style={{
             width: "100%",
             background: "#b5b5b5",
@@ -154,7 +202,8 @@ const LoginApp = ({ onLogin, onInvitado }) => {
             border: "none",
             marginTop: 8,
             fontSize: "1em",
-            cursor: "pointer"
+            cursor: loading ? "default" : "pointer",
+            opacity: loading ? 0.85 : 1,
           }}
         >
           Entrar como invitado
@@ -162,6 +211,4 @@ const LoginApp = ({ onLogin, onInvitado }) => {
       </div>
     </div>
   );
-};
-
-export default LoginApp;
+}
