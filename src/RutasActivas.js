@@ -5,28 +5,36 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import API_URL from "./config";
-import { getCamionColor, normalizeCamion } from "./config/camionColors";
 import "./App.css";
 
-/* ===================== Axios (60s) + warm-up ===================== */
-const api = axios.create({
-  baseURL: API_URL,   // ej: "https://aguaruta-backend.onrender.com" o "/api"
-  timeout: 60000,     // 60s para cold start en Render
-});
+/* -------------------- utils -------------------- */
+const normalizar = (str) =>
+  String(str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const toNumberOrNull = (v) => {
+  if (v === "" || v === null || v === undefined) return null;
+  const n = Number(String(v).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+};
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function warmUp() {
-  try { await api.get(`/health`, { timeout: 8000 }); } catch {}
+  try {
+    await axios.get(`${API_URL}/health`, { timeout: 8000 });
+  } catch {}
 }
 
-// GET /rutas-activas con warm-up + reintentos exponenciales
+// GET /rutas-activas con warm-up + reintentos
 async function fetchRutasActivasConReintentos(intentos = 3) {
   await warmUp();
   let delay = 1500;
   for (let i = 0; i < intentos; i++) {
     try {
-      const { data } = await api.get(`/rutas-activas`);
+      const { data } = await axios.get(`${API_URL}/rutas-activas`, { timeout: 15000 });
       return Array.isArray(data) ? data : [];
     } catch (e) {
       if (i === intentos - 1) throw e;
@@ -36,24 +44,9 @@ async function fetchRutasActivasConReintentos(intentos = 3) {
   }
 }
 
-/* ===================== utils ===================== */
-// normaliza texto (quita tildes y pasa a minúsculas)
-const normalizar = (str) =>
-  String(str || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-// a número (soporta comas); null si vacío o inválido
-const toNumberOrNull = (v) => {
-  if (v === "" || v === null || v === undefined) return null;
-  const n = Number(String(v).replace(",", "."));
-  return Number.isFinite(n) ? n : null;
-};
-
-// normalizar fila (incluye variantes de nombres de columnas)
-const normalizaFila = (r, idx) => ({
-  id: r.id ?? idx + 1,
+// ✅ usa SOLO el id real que devuelve el backend
+const normalizaFila = (r) => ({
+  id: r.id ?? null,
   camion: r.camion ?? r.CAMION ?? r.camion_asignado ?? r.id_camion ?? "",
   nombre: r.nombre ?? r.NOMBRE ?? r.jefe_hogar ?? r.jefe ?? "",
   dia: r.dia ?? r.dia_asignado ?? r.DIA ?? "",
@@ -63,33 +56,13 @@ const normalizaFila = (r, idx) => ({
   longitud: toNumberOrNull(r.longitud ?? r.lon ?? r.lng ?? r.longitude ?? r.Longitud),
 });
 
-/* ===================== UI helpers ===================== */
-const ColorDot = ({ camion }) => {
-  const norm = normalizeCamion(camion);
-  const color = getCamionColor(norm);
-  return (
-    <span
-      title={`Camión ${norm || camion || "-"}`}
-      style={{
-        width: 10,
-        height: 10,
-        borderRadius: "50%",
-        background: color,
-        display: "inline-block",
-        border: "1px solid rgba(0,0,0,.25)",
-        marginRight: 6,
-      }}
-    />
-  );
-};
-
-/* ===================== componente ===================== */
-const RutasActivas = () => {
+/* -------------------- componente -------------------- */
+export default function RutasActivas() {
   const [datos, setDatos] = useState([]);
-  const [estado, setEstado] = useState("idle"); // idle | waking | ok | error
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
-  const [soloLectura, setSoloLectura] = useState(false); // true si usó fallback
+  const [soloLectura, setSoloLectura] = useState(false);
 
   const [filtro, setFiltro] = useState({ camion: "", dia: "", nombre: "", litros: "" });
   const [editandoId, setEditandoId] = useState(null);
@@ -99,24 +72,23 @@ const RutasActivas = () => {
     let cancel = false;
 
     (async () => {
-      setEstado("waking");
+      setCargando(true);
       setError("");
       setWarning("");
       setSoloLectura(false);
 
-      // 1) backend (con reintentos)
       try {
         const arr = await fetchRutasActivasConReintentos(3);
         if (!cancel) {
           setDatos(arr.map(normalizaFila));
-          setEstado("ok");
+          setCargando(false);
         }
         return;
       } catch (e) {
         console.warn("Backend /rutas-activas no disponible, uso fallback:", e?.message || e);
       }
 
-      // 2) fallback JSON local (solo lectura)
+      // Fallback JSON local
       const fallbacks = [
         "/datos/RutasMapaFinal_con_telefono.json",
         "/data/RutasMapaFinal_con_telefono.json",
@@ -129,7 +101,7 @@ const RutasActivas = () => {
             setDatos(arr.map(normalizaFila));
             setWarning("Mostrando datos de respaldo (solo lectura) por indisponibilidad del backend.");
             setSoloLectura(true);
-            setEstado("ok");
+            setCargando(false);
           }
           return;
         } catch {}
@@ -138,7 +110,7 @@ const RutasActivas = () => {
       if (!cancel) {
         setError("No se pudieron cargar las rutas.");
         setDatos([]);
-        setEstado("error");
+        setCargando(false);
       }
     })();
 
@@ -162,12 +134,15 @@ const RutasActivas = () => {
 
   const guardarCambios = async (row) => {
     if (soloLectura) {
-      alert("Estás en modo solo lectura (fallback). Intenta de nuevo cuando el backend esté disponible.");
+      alert("Estás en modo solo lectura (fallback). Intenta cuando el backend esté disponible.");
+      return;
+    }
+    if (!row.id) {
+      alert("Este registro no tiene ID real de la tabla. Recarga la página.");
       return;
     }
     if (!window.confirm("¿Guardar cambios en este registro?")) return;
 
-    // construir solo diffs
     const diff = {};
     if (cambios.camion !== row.camion) diff.camion = cambios.camion?.trim() || null;
     if (cambios.nombre !== row.nombre) diff.nombre = cambios.nombre?.trim() || null;
@@ -191,17 +166,34 @@ const RutasActivas = () => {
     }
 
     try {
-      // ✅ endpoint: PUT /rutas-activas/{id}
-      const { data } = await api.put(`/rutas-activas/${row.id}`, diff);
-      console.log("Actualizado:", data);
-
-      // reflejar en memoria
+      await axios.put(`${API_URL}/rutas-activas/${row.id}`, diff, { timeout: 15000 });
       setDatos((prev) => prev.map((r0) => (r0.id === row.id ? { ...r0, ...diff } : r0)));
       setEditandoId(null);
       setCambios({});
     } catch (e) {
-      console.error("Error al guardar cambios:", e);
+      console.error("Error al guardar:", e);
       alert("No se pudo guardar. Revisa consola/logs.");
+    }
+  };
+
+  const eliminarFila = async (row) => {
+    if (soloLectura) {
+      alert("Estás en modo solo lectura (fallback). Intenta cuando el backend esté disponible.");
+      return;
+    }
+    if (!row.id) {
+      alert("Este registro no tiene ID real de la tabla. Recarga la página.");
+      return;
+    }
+    const etiqueta = row.nombre ? `“${row.nombre}”` : "este registro";
+    if (!window.confirm(`¿Eliminar ${etiqueta}? Esta acción no se puede deshacer.`)) return;
+
+    try {
+      await axios.delete(`${API_URL}/rutas-activas/${row.id}`, { timeout: 15000 });
+      setDatos((prev) => prev.filter((r0) => r0.id !== row.id));
+    } catch (e) {
+      console.error("Error al eliminar:", e);
+      alert("No se pudo eliminar. Revisa consola/logs.");
     }
   };
 
@@ -242,21 +234,8 @@ const RutasActivas = () => {
   }, [datos, filtro]);
 
   /* -------- UI -------- */
-  if (estado === "idle" || estado === "waking")
-    return (
-      <div className="main-container fade-in">
-        <h2 className="titulo">Rutas Activas por Camión</h2>
-        <div className="alert alert-info">Despertando backend… puede tardar unos segundos.</div>
-      </div>
-    );
-
-  if (estado === "error")
-    return (
-      <div className="main-container fade-in">
-        <h2 className="titulo">Rutas Activas por Camión</h2>
-        <div className="alert alert-error">{error || "No se pudieron cargar las rutas."}</div>
-      </div>
-    );
+  if (cargando) return <div className="main-container fade-in"><p>Cargando…</p></div>;
+  if (error) return <div className="main-container fade-in"><p>{error}</p></div>;
 
   return (
     <div className="main-container fade-in">
@@ -315,7 +294,7 @@ const RutasActivas = () => {
           {datosFiltrados.map((d) => {
             const enEdicion = editandoId === d.id;
             return (
-              <tr key={d.id}>
+              <tr key={d.id ?? `${d.camion}-${d.nombre}`}>
                 <td>
                   {enEdicion ? (
                     <input
@@ -323,9 +302,7 @@ const RutasActivas = () => {
                       onChange={(e) => setCambios({ ...cambios, camion: e.target.value })}
                     />
                   ) : (
-                    <span className="camion-cell" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <ColorDot camion={d.camion} /> {d.camion}
-                    </span>
+                    d.camion
                   )}
                 </td>
                 <td>
@@ -391,24 +368,29 @@ const RutasActivas = () => {
                 <td>
                   {enEdicion ? (
                     <>
-                      <button onClick={() => guardarCambios(d)}>💾 Guardar</button>
-                      <button
-                        onClick={() => {
-                          setEditandoId(null);
-                          setCambios({});
-                        }}
-                      >
+                      <button onClick={() => guardarCambios(d)} disabled={!d.id || soloLectura}>
+                        💾 Guardar
+                      </button>{" "}
+                      <button onClick={() => { setEditandoId(null); setCambios({}); }}>
                         ❌ Cancelar
+                      </button>{" "}
+                      <button onClick={() => eliminarFila(d)} disabled={!d.id || soloLectura}>
+                        🗑️ Eliminar
                       </button>
                     </>
                   ) : (
-                    <button
-                      onClick={() => onEditar(d)}
-                      disabled={soloLectura}
-                      title={soloLectura ? "Solo lectura por fallback" : "Editar"}
-                    >
-                      ✏️ Editar
-                    </button>
+                    <>
+                      <button
+                        onClick={() => onEditar(d)}
+                        disabled={soloLectura}
+                        title={soloLectura ? "Solo lectura por fallback" : "Editar"}
+                      >
+                        ✏️ Editar
+                      </button>{" "}
+                      <button onClick={() => eliminarFila(d)} disabled={!d.id || soloLectura}>
+                        🗑️ Eliminar
+                      </button>
+                    </>
                   )}
                 </td>
               </tr>
@@ -423,6 +405,4 @@ const RutasActivas = () => {
       `}</style>
     </div>
   );
-};
-
-export default RutasActivas;
+}
