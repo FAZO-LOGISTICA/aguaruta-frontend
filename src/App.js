@@ -1,6 +1,13 @@
 // src/App.js
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from "react-router-dom";
+import React, { useState } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Link,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 
 import Inicio from "./Inicio";
 import Mapa from "./Mapa";
@@ -11,22 +18,22 @@ import RutasPorCamion from "./RutasPorCamion";
 import RutasActivas from "./RutasActivas";
 import RegistrarEntrega from "./RegistrarEntrega";
 import RegistrarNuevoPunto from "./RegistrarNuevoPunto";
-// ❌ import NuevaDistribucion from "./NuevaDistribucion";
 import NoEntregadas from "./NoEntregadas";
-// ❌ import MapaRedistribucion from "./MapaRedistribucion";
-// ❌ import EditarRedistribucion from "./EditarRedistribucion";
 import AdminUsuarios from "./AdminUsuarios";
 import LoginApp from "./LoginApp";
 import EntregasApp from "./EntregasApp";
 import Entregas from "./Entregas";
 
+// 🆕 Nueva pantalla de auditoría
+import Auditoria from "./Auditoria";
+
 const usuariosEjemplo = [
   { username: "che.gustrago", password: "FAZO-LOGISTICA", role: "dios" },
   { username: "laguna_verde", password: "delegacion", role: "editor" },
-  { username: "operaciones", password: "direccion", role: "editor" }
+  { username: "operaciones", password: "direccion", role: "editor" },
 ];
 
-// Menú sin “Nueva Distribución”, sin “Mapa Redistribución” y sin “Editar Redistribución”
+// Menú (sin páginas de redistribución)
 const menuItems = [
   { path: "/", label: "Inicio", roles: ["dios", "editor", "invitado"] },
   { path: "/mapa", label: "Mapa", roles: ["dios", "editor", "invitado"] },
@@ -38,94 +45,157 @@ const menuItems = [
   { path: "/registrar-entrega", label: "Registrar Entrega", roles: ["dios", "editor"] },
   { path: "/entregas", label: "Entregas", roles: ["dios", "editor"] },
   { path: "/registrar-punto", label: "Registrar Punto", roles: ["dios", "editor"] },
-  // ❌ { path: "/nueva-distribucion", label: "Nueva Distribución", roles: ["dios"] },
   { path: "/no-entregadas", label: "No Entregadas", roles: ["dios", "editor"] },
   { path: "/entregas-app", label: "Entregas App", roles: ["dios", "editor"] },
-  // ❌ { path: "/mapa-redistribucion", label: "Mapa Redistribución", roles: ["dios"] },
-  // ❌ { path: "/editar-redistribucion", label: "Editar Redistribución", roles: ["dios"] },
-  { path: "/usuarios", label: "Usuarios", roles: ["dios"] }
+  // 🆕 Auditoría visible para dios y editor
+  { path: "/auditoria", label: "Auditoría", roles: ["dios", "editor"] },
+  { path: "/usuarios", label: "Usuarios", roles: ["dios"] },
 ];
+
+function NavBar({ usuarioActual, onLogout }) {
+  const location = useLocation();
+
+  if (!usuarioActual) return null;
+
+  return (
+    <nav
+      style={{
+        background: "#153a5e",
+        boxShadow: "0 2px 8px #0002",
+        padding: 0,
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1400,
+          margin: "0 auto",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0.2rem 2rem",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
+          {menuItems
+            .filter((item) => item.roles.includes(usuarioActual.role))
+            .map((item) => {
+              const active = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className="nav-link"
+                  style={{
+                    color: "#fff",
+                    textDecoration: "none",
+                    fontWeight: 600,
+                    fontSize: "1.12rem",
+                    padding: "0.55rem 0.7rem",
+                    borderRadius: "6px",
+                    transition: "background 0.2s",
+                    background: active ? "#e9ecef" : "transparent",
+                    color: active ? "#000" : "#fff",
+                    margin: 0,
+                    display: "block",
+                  }}
+                  onMouseOver={(e) => (e.target.style.background = active ? "#e9ecef" : "#20446d")}
+                  onMouseOut={(e) =>
+                    (e.target.style.background = active ? "#e9ecef" : "transparent")
+                  }
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "1.4rem" }}>
+          <span style={{ color: "#fff", fontWeight: 400 }}>
+            Usuario: <b>{usuarioActual.username}</b> ({usuarioActual.role})
+          </span>
+          <button
+            onClick={onLogout}
+            style={{
+              padding: "0.42rem 1rem",
+              borderRadius: "7px",
+              border: "none",
+              background: "#f03a4b",
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: "1rem",
+              cursor: "pointer",
+              boxShadow: "0 2px 5px #0001",
+              transition: "background 0.15s",
+            }}
+            onMouseOver={(e) => (e.target.style.background = "#B82637")}
+            onMouseOut={(e) => (e.target.style.background = "#f03a4b")}
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
+}
 
 function App() {
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [usuarios, setUsuarios] = useState(usuariosEjemplo);
 
   const handleLogin = (username, password, invitado = false) => {
-    if (invitado) { setUsuarioActual({ username: "Invitado", role: "invitado" }); return true; }
-    const user = usuarios.find(u => u.username === username && u.password === password);
-    if (user) { setUsuarioActual(user); return true; }
+    if (invitado) {
+      setUsuarioActual({ username: "Invitado", role: "invitado" });
+      return true;
+    }
+    const user = usuarios.find((u) => u.username === username && u.password === password);
+    if (user) {
+      setUsuarioActual(user);
+      return true;
+    }
     return false;
   };
 
   const handleLogout = () => setUsuarioActual(null);
 
   const agregarUsuario = (nuevo) => {
-    if (usuarios.find(u => u.username === nuevo.username)) return alert("Ese usuario ya existe.");
+    if (usuarios.find((u) => u.username === nuevo.username))
+      return alert("Ese usuario ya existe.");
     setUsuarios([...usuarios, nuevo]);
   };
+
   const eliminarUsuario = (username) => {
     if (window.confirm("¿Eliminar usuario?")) {
-      setUsuarios(usuarios.filter(u => u.username !== username));
+      setUsuarios(usuarios.filter((u) => u.username !== username));
     }
   };
+
   const cambiarContraseña = (username, password, role) => {
-    setUsuarios(usuarios.map(u =>
-      u.username === username
-        ? { ...u, password: password || u.password, role: role || u.role }
-        : u
-    ));
+    setUsuarios(
+      usuarios.map((u) =>
+        u.username === username
+          ? { ...u, password: password || u.password, role: role || u.role }
+          : u
+      )
+    );
   };
 
   return (
     <Router>
-      {usuarioActual && (
-        <nav style={{ background: "#153a5e", boxShadow: "0 2px 8px #0002", padding: 0, position: "sticky", top: 0, zIndex: 100 }}>
-          <div style={{ maxWidth: 1400, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.2rem 2rem", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-              {menuItems
-                .filter(item => item.roles.includes(usuarioActual.role))
-                .map(item => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    style={{
-                      color: "#fff", textDecoration: "none", fontWeight: 600, fontSize: "1.12rem",
-                      padding: "0.55rem 0.7rem", borderRadius: "6px", transition: "background 0.2s",
-                      background: window.location.pathname === item.path ? "#2c5482" : "transparent", margin: 0, display: "block"
-                    }}
-                    onMouseOver={e => (e.target.style.background = "#20446d")}
-                    onMouseOut={e => (e.target.style.background = window.location.pathname === item.path ? "#2c5482" : "transparent")}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "1.4rem" }}>
-              <span style={{ color: "#fff", fontWeight: 400 }}>
-                Usuario: <b>{usuarioActual.username}</b> ({usuarioActual.role})
-              </span>
-              <button
-                onClick={handleLogout}
-                style={{
-                  padding: "0.42rem 1rem", borderRadius: "7px", border: "none",
-                  background: "#f03a4b", color: "#fff", fontWeight: 600, fontSize: "1rem",
-                  cursor: "pointer", boxShadow: "0 2px 5px #0001", transition: "background 0.15s"
-                }}
-                onMouseOver={e => (e.target.style.background = "#B82637")}
-                onMouseOut={e => (e.target.style.background = "#f03a4b")}
-              >
-                Cerrar sesión
-              </button>
-            </div>
-          </div>
-        </nav>
-      )}
+      <NavBar usuarioActual={usuarioActual} onLogout={handleLogout} />
 
       <Routes>
         {!usuarioActual ? (
           <Route
             path="*"
-            element={<LoginApp onLogin={handleLogin} onInvitado={() => handleLogin(null, null, true)} />}
+            element={
+              <LoginApp
+                onLogin={handleLogin}
+                onInvitado={() => handleLogin(null, null, true)}
+              />
+            }
           />
         ) : (
           <>
@@ -139,11 +209,21 @@ function App() {
             <Route path="/registrar-entrega" element={<RegistrarEntrega />} />
             <Route path="/entregas" element={<Entregas />} />
             <Route path="/registrar-punto" element={<RegistrarNuevoPunto />} />
-            {/* ❌ <Route path="/nueva-distribucion" element={<NuevaDistribucion />} /> */}
             <Route path="/no-entregadas" element={<NoEntregadas />} />
             <Route path="/entregas-app" element={<EntregasApp />} />
-            {/* ❌ <Route path="/mapa-redistribucion" element={<MapaRedistribucion />} /> */}
-            {/* ❌ <Route path="/editar-redistribucion" element={<EditarRedistribucion />} /> */}
+
+            {/* 🆕 Auditoría: visible para dios y editor */}
+            <Route
+              path="/auditoria"
+              element={
+                ["dios", "editor"].includes(usuarioActual.role) ? (
+                  <Auditoria />
+                ) : (
+                  <Navigate to="/" />
+                )
+              }
+            />
+
             <Route
               path="/usuarios"
               element={
@@ -160,6 +240,7 @@ function App() {
                 )
               }
             />
+
             <Route path="*" element={<Navigate to="/" />} />
           </>
         )}
