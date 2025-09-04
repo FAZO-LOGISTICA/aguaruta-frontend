@@ -1,6 +1,6 @@
 // src/App.js
 import React, { useEffect, useMemo, useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Link, Navigate } from "react-router-dom";
 import axios from "axios";
 
 import Inicio from "./Inicio";
@@ -16,10 +16,11 @@ import NoEntregadas from "./NoEntregadas";
 import EntregasApp from "./EntregasApp";
 import Entregas from "./Entregas";
 import AdminUsuarios from "./AdminUsuarios";
+// Si no tienes una pantalla Auditoria, comenta la siguiente línea y la ruta.
+// import Auditoria from "./Auditoria";
 import LoginApp from "./LoginApp";
-import Auditoria from "./Auditoria"; // si tu archivo es otro, ajusta el import
 
-// ===== Permisos disponibles (puedes agregar más cuando quieras)
+// ===== Permisos disponibles
 const DEFAULT_PERMISOS = {
   auditoria: false,
   rutasActivas: true,
@@ -35,13 +36,13 @@ const DEFAULT_PERMISOS = {
   entregasApp: true,
 };
 
-// ===== Usuarios por defecto (se sobreescriben con localStorage si existen)
+// ===== Usuarios por defecto
 const usuariosPorDefecto = [
   {
     username: "che.gustrago",
     password: "FAZO-LOGISTICA",
     role: "dios",
-    permisos: Object.fromEntries(Object.keys(DEFAULT_PERMISOS).map(k => [k, true])), // dios: todo habilitado
+    permisos: Object.fromEntries(Object.keys(DEFAULT_PERMISOS).map(k => [k, true])),
   },
   {
     username: "laguna_verde",
@@ -57,9 +58,9 @@ const usuariosPorDefecto = [
   },
 ];
 
-// ===== Menú (cada item puede requerir un permiso específico)
+// ===== Menú (cada item puede requerir un permiso)
 const MENU = [
-  { path: "/", label: "Inicio" },                                   // libre
+  { path: "/", label: "Inicio" },
   { path: "/mapa", label: "Mapa", perm: "mapa" },
   { path: "/graficos", label: "Gráficos", perm: "graficos" },
   { path: "/estadisticas-camion", label: "Estadísticas Camión", perm: "estadisticasCamion" },
@@ -71,14 +72,9 @@ const MENU = [
   { path: "/registrar-punto", label: "Registrar Punto", perm: "registrarPunto" },
   { path: "/no-entregadas", label: "No Entregadas", perm: "noEntregadas" },
   { path: "/entregas-app", label: "Entregas App", perm: "entregasApp" },
-  { path: "/auditoria", label: "Auditoría", perm: "auditoria" },    // ← la puedes apagar para editores
-  { path: "/usuarios", label: "Usuarios", onlyRole: "dios" },       // sólo dioses
+  { path: "/auditoria", label: "Auditoría", perm: "auditoria" },   // si no usas Auditoría, borra esta línea
+  { path: "/usuarios", label: "Usuarios", onlyRole: "dios" },
 ];
-
-function usePathname() {
-  const loc = useLocation();
-  return loc.pathname;
-}
 
 function App() {
   // ===== Estado de sesión
@@ -94,7 +90,6 @@ function App() {
     }
   });
 
-  // Persistir en localStorage cuando cambien
   useEffect(() => {
     localStorage.setItem("usuarios", JSON.stringify(usuarios));
   }, [usuarios]);
@@ -102,10 +97,10 @@ function App() {
   // ===== Helpers de permisos
   const isDios = (user) => user?.role === "dios";
   const can = (user, permKey) => {
-    if (!permKey) return true;                // si la ruta no define permiso, entra
+    if (!permKey) return true;
     if (!user) return false;
-    if (isDios(user)) return true;            // dioses ven todo
-    return !!user.permisos?.[permKey];        // editor: sólo si lo tiene en true
+    if (isDios(user)) return true;
+    return !!user.permisos?.[permKey];
   };
 
   // ===== Login / Logout
@@ -153,7 +148,7 @@ function App() {
   };
 
   // ===== Menú filtrado por permisos
-  const pathname = usePathname();
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
   const itemsMenu = useMemo(() => {
     if (!usuarioActual) return [];
     return MENU.filter(item => {
@@ -168,7 +163,7 @@ function App() {
     if (onlyRole && usuarioActual.role !== onlyRole) return <Navigate to="/" replace />;
     if (!can(usuarioActual, permKey)) return <Navigate to="/" replace />;
     return element;
-    };
+  };
 
   return (
     <Router>
@@ -227,7 +222,8 @@ function App() {
             <Route path="/registrar-punto" element={gate("registrarPunto", <RegistrarNuevoPunto />)} />
             <Route path="/no-entregadas" element={gate("noEntregadas", <NoEntregadas />)} />
             <Route path="/entregas-app" element={gate("entregasApp", <EntregasApp />)} />
-            <Route path="/auditoria" element={gate("auditoria", <Auditoria />)} />
+            {/* Si no tienes Auditoría, comenta la siguiente línea */}
+            {/* <Route path="/auditoria" element={gate("auditoria", <Auditoria />)} /> */}
 
             <Route
               path="/usuarios"
@@ -240,7 +236,7 @@ function App() {
                   actualizarUsuario={actualizarUsuario}
                   defaultPerms={DEFAULT_PERMISOS}
                 />,
-                "dios" // sólo dioses
+                "dios"
               )}
             />
             <Route path="*" element={<Navigate to="/" />} />
