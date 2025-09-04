@@ -7,7 +7,13 @@ import "jspdf-autotable";
 import API_URL from "./config";
 import "./App.css";
 
-/* -------------------- utils -------------------- */
+/* ===================== Axios instance ===================== */
+const api = axios.create({
+  baseURL: API_URL,      // ej: "/api" si usas proxy en Netlify; o "https://aguaruta-backend.onrender.com"
+  timeout: 60000,        // 60s para aguantar el cold start de Render
+});
+
+/* ===================== utils ===================== */
 // normaliza texto (quita tildes y pasa a minúsculas)
 const normalizar = (str) =>
   String(str || "")
@@ -26,19 +32,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function warmUp() {
   try {
-    await axios.get(`${API_URL}/health`, { timeout: 8000 });
+    await api.get(`/health`, { timeout: 8000 });
   } catch {}
 }
 
-// GET /rutas-activas con warm-up + reintentos exponenciales
-async function fetchRutasActivasConReintentos(intentos = 3) {
+// GET /rutas-activas con warm-up + reintentos exponenciales (y callback de “despertando”)
+async function fetchRutasActivasConReintentos(intentos = 3, onWaking = null) {
   await warmUp();
   let delay = 1500;
   for (let i = 0; i < intentos; i++) {
     try {
-      const { data } = await axios.get(`${API_URL}/rutas-activas`, { timeout: 15000 });
+      const { data } = await api.get(`/rutas-activas`);
       return Array.isArray(data) ? data : [];
     } catch (e) {
+      // Si es timeout o error de red, avisamos que está despertando
+      const isAbort = e?.code === "ECONNABORTED";
+      const noResponse = !e?.response;
+      if (onWaking && (isAbort || noResponse)) onWaking();
       if (i === intentos - 1) throw e;
       await sleep(delay);
       delay *= 2;
@@ -58,10 +68,10 @@ const normalizaFila = (r, idx) => ({
   longitud: toNumberOrNull(r.longitud ?? r.lon ?? r.lng ?? r.longitude ?? r.Longitud),
 });
 
-/* -------------------- componente -------------------- */
+/* ===================== componente ===================== */
 const RutasActivas = () => {
   const [datos, setDatos] = useState([]);
-  const [cargando, setCargando] = useState(true);
+  const [estado, setEstado] = useState("idle"); // idle | waking | ok | error
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const [soloLectura, setSoloLectura] = useState(false); // true si usó fallback
@@ -74,24 +84,25 @@ const RutasActivas = () => {
     let cancel = false;
 
     (async () => {
-      setCargando(true);
+      setEstado("waking");
       setError("");
       setWarning("");
       setSoloLectura(false);
 
-      // 1) backend (con reintentos)
       try {
-        const arr = await fetchRutasActivasConReintentos(3);
+        const arr = await fetchRutasActivasConReintentos(3, () => {
+          if (!cancel) setEstado("waking");
+        });
         if (!cancel) {
           setDatos(arr.map(normalizaFila));
-          setCargando(false);
+          setEstado("ok");
         }
         return;
       } catch (e) {
         console.warn("Backend /rutas-activas no disponible, uso fallback:", e?.message || e);
       }
 
-      // 2) fallback JSON local (solo lectura)
+      // Fallback JSON local (solo lectura)
       const fallbacks = [
         "/datos/RutasMapaFinal_con_telefono.json",
         "/data/RutasMapaFinal_con_telefono.json",
@@ -104,7 +115,7 @@ const RutasActivas = () => {
             setDatos(arr.map(normalizaFila));
             setWarning("Mostrando datos de respaldo (solo lectura) por indisponibilidad del backend.");
             setSoloLectura(true);
-            setCargando(false);
+            setEstado("ok");
           }
           return;
         } catch {}
@@ -113,7 +124,7 @@ const RutasActivas = () => {
       if (!cancel) {
         setError("No se pudieron cargar las rutas.");
         setDatos([]);
-        setCargando(false);
+        setEstado("error");
       }
     })();
 
@@ -166,8 +177,8 @@ const RutasActivas = () => {
     }
 
     try {
-      // ✅ endpoint correcto del backend: PUT /rutas-activas/{id}
-      const { data } = await axios.put(`${API_URL}/rutas-activas/${row.id}`, diff, { timeout: 15000 });
+      // Nota: el backend debe exponer PUT /rutas-activas/{id} para que esto funcione
+      const { data } = await api.put(`/rutas-activas/${row.id}`, diff);
       console.log("Actualizado:", data);
 
       // reflejar en memoria
@@ -217,8 +228,19 @@ const RutasActivas = () => {
   }, [datos, filtro]);
 
   /* -------- UI -------- */
-  if (cargando) return <div className="main-container fade-in"><p>Cargando…</p></div>;
-  if (error) return <div className="main-container fade-in"><p>{error}</p></div>;
+  if (estado === "idle" || estado === "waking")
+    return (
+      <div className="main-container fade-in">
+        <p>Despertando backend… puede tardar unos segundos.</p>
+      </div>
+    );
+
+  if (estado === "error")
+    return (
+      <div className="main-container fade-in">
+        <p>{error || "No se pudieron cargar las rutas."}</p>
+      </div>
+    );
 
   return (
     <div className="main-container fade-in">
@@ -352,7 +374,14 @@ const RutasActivas = () => {
                   {enEdicion ? (
                     <>
                       <button onClick={() => guardarCambios(d)}>💾 Guardar</button>
-                      <button onClick={() => { setEditandoId(null); setCambios({}); }}>❌ Cancelar</button>
+                      <button
+                        onClick={() => {
+                          setEditandoId(null);
+                          setCambios({});
+                        }}
+                      >
+                        ❌ Cancelar
+                      </button>
                     </>
                   ) : (
                     <button
