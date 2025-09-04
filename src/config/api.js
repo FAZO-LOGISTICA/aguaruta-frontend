@@ -1,13 +1,27 @@
 // src/config/api.js
+// npm i axios axios-retry
 import axios from "axios";
+import axiosRetry from "axios-retry";
 
-const API_URL =
-  (typeof window !== "undefined" && window._env_?.REACT_APP_API_URL) ||
-  process.env.REACT_APP_API_URL ||
-  "";
+// Si usas el proxy de Netlify, deja "/api". Si no, pon la URL completa del backend.
+const API_BASE = "/api";
 
-if (!API_URL) {
-  console.error("[AguaRuta] Falta REACT_APP_API_URL en Netlify.");
+export const api = axios.create({
+  baseURL: API_BASE,
+  timeout: 60000, // 60s para el cold start de Render
+});
+
+axiosRetry(api, {
+  retries: 2,
+  retryDelay: axiosRetry.exponentialDelay,
+  retryCondition: (err) =>
+    axiosRetry.isNetworkOrIdempotentRequestError(err) || err.code === "ECONNABORTED",
+});
+
+export async function fetchRutasActivas() {
+  // Warm-up rápido: despierta el backend si está dormido
+  try { await api.get("/health", { timeout: 8000 }); } catch {}
+  // Petición real (axios-retry ya reintenta)
+  const { data } = await api.get("/rutas-activas");
+  return data;
 }
-
-export const api = axios.create({ baseURL: API_URL, timeout: 20000 });
