@@ -1,223 +1,187 @@
 // src/AdminUsuarios.js
-import React, { useState } from 'react';
+import React, { useMemo, useState } from "react";
 
 export default function AdminUsuarios({
   usuarios,
   setUsuarios,
   agregarUsuario,
   eliminarUsuario,
-  cambiarContraseña
+  actualizarUsuario,
+  defaultPerms = {},
 }) {
-  const [nuevoUsuario, setNuevoUsuario] = useState({
+  const [nuevo, setNuevo] = useState({
     username: "",
     password: "",
-    role: "editor"
+    role: "editor",
+    permisos: defaultPerms,
+    mostrarPass: false,
   });
-  const [mostrarPassNuevo, setMostrarPassNuevo] = useState(false);
 
-  const [editando, setEditando] = useState(null);
-  const [editData, setEditData] = useState({ username: "", password: "", role: "" });
-  const [mostrarPassEdit, setMostrarPassEdit] = useState(false);
+  const permisosKeys = useMemo(() => Object.keys(defaultPerms), [defaultPerms]);
 
-  // Crear nuevo usuario
-  const handleAgregar = (e) => {
-    e.preventDefault();
-    if (!nuevoUsuario.username || !nuevoUsuario.password) return;
-    agregarUsuario(nuevoUsuario);
-    setNuevoUsuario({ username: "", password: "", role: "editor" });
-    setMostrarPassNuevo(false);
+  const onCrear = () => {
+    const username = (nuevo.username || "").trim();
+    const password = (nuevo.password || "").trim();
+    if (!username || !password) return alert("Usuario y contraseña son obligatorios.");
+
+    const basePerms =
+      nuevo.role === "dios"
+        ? Object.fromEntries(permisosKeys.map(k => [k, true]))
+        : { ...defaultPerms, ...nuevo.permisos };
+
+    agregarUsuario({
+      username,
+      password,
+      role: nuevo.role,
+      permisos: basePerms,
+    });
+
+    setNuevo({
+      username: "",
+      password: "",
+      role: "editor",
+      permisos: defaultPerms,
+      mostrarPass: false,
+    });
   };
 
-  // Editar usuario existente
-  const handleEditar = (usuario) => {
-    setEditando(usuario.username);
-    setEditData({ ...usuario, password: "" }); // no prellenar contraseñas
-    setMostrarPassEdit(false);
+  const togglePermUser = (u, key) => {
+    const next = { ...u, permisos: { ...u.permisos, [key]: !u.permisos?.[key] } };
+    actualizarUsuario(u.username, next);
   };
 
-  const handleGuardarEdicion = (e) => {
-    e.preventDefault();
-    cambiarContraseña(editData.username, editData.password, editData.role);
-    setEditando(null);
-    setMostrarPassEdit(false);
+  const changeRole = (u, role) => {
+    let perms = { ...u.permisos };
+    if (role === "dios") {
+      perms = Object.fromEntries(permisosKeys.map(k => [k, true]));
+    }
+    actualizarUsuario(u.username, { role, permisos: perms });
   };
 
   return (
-    <div style={{ maxWidth: 720, margin: "40px auto", padding: 24, background: "#fff", borderRadius: 8, boxShadow: "0 2px 12px #0001" }}>
-      <h2 style={{ marginTop: 0 }}>Administración de Usuarios</h2>
+    <div className="main-container fade-in" style={{ maxWidth: 900, margin: "0 auto" }}>
+      <h2 className="titulo">Administración de Usuarios</h2>
 
-      {/* Crear nuevo usuario */}
-      <form onSubmit={handleAgregar} autoComplete="on" style={{ marginBottom: 24 }}>
-        <h4>Crear nuevo usuario</h4>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ flex: "1 1 180px" }}>
-            <label htmlFor="nuevo-username" style={{ display: "block", marginBottom: 4 }}>Usuario</label>
+      {/* Crear nuevo */}
+      <div style={{ background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 2px 12px #0001", marginBottom: 16 }}>
+        <h3 className="subtitulo" style={{ marginTop: 0 }}>Crear nuevo usuario</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 160px 120px", gap: 10, alignItems: "center" }}>
+          <input
+            placeholder="Usuario"
+            value={nuevo.username}
+            onChange={(e) => setNuevo((n) => ({ ...n, username: e.target.value }))}
+          />
+          <div style={{ display: "flex", gap: 6 }}>
             <input
-              id="nuevo-username"
-              name="username"
-              type="text"
-              placeholder="Usuario"
-              value={nuevoUsuario.username}
-              onChange={e => setNuevoUsuario({ ...nuevoUsuario, username: e.target.value })}
-              required
-              autoComplete="username"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck="false"
-              style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd" }}
-            />
-          </div>
-
-          <div style={{ flex: "1 1 220px", position: "relative" }}>
-            <label htmlFor="nuevo-password" style={{ display: "block", marginBottom: 4 }}>Contraseña</label>
-            <input
-              id="nuevo-password"
-              name="new-password"
-              type={mostrarPassNuevo ? "text" : "password"}
               placeholder="Contraseña"
-              value={nuevoUsuario.password}
-              onChange={e => setNuevoUsuario({ ...nuevoUsuario, password: e.target.value })}
-              required
-              autoComplete="new-password"
-              style={{ width: "100%", padding: "8px 70px 8px 8px", borderRadius: 6, border: "1px solid #ddd" }}
+              type={nuevo.mostrarPass ? "text" : "password"}
+              value={nuevo.password}
+              onChange={(e) => setNuevo((n) => ({ ...n, password: e.target.value }))}
+              style={{ flex: 1 }}
             />
-            <button
-              type="button"
-              onClick={() => setMostrarPassNuevo(v => !v)}
-              title={mostrarPassNuevo ? "Ocultar contraseña" : "Mostrar contraseña"}
-              style={{
-                position: "absolute", right: 6, top: 28,
-                padding: "6px 10px", borderRadius: 6, border: "1px solid #ccc",
-                background: "#eee", cursor: "pointer", fontSize: 12
-              }}
-            >
-              {mostrarPassNuevo ? "Ocultar" : "Ver"}
+            <button type="button" onClick={() => setNuevo(n => ({ ...n, mostrarPass: !n.mostrarPass }))}>
+              {nuevo.mostrarPass ? "Ocultar" : "Ver"}
             </button>
           </div>
-
-          <div style={{ flex: "0 0 150px" }}>
-            <label htmlFor="nuevo-rol" style={{ display: "block", marginBottom: 4 }}>Rol</label>
-            <select
-              id="nuevo-rol"
-              value={nuevoUsuario.role}
-              onChange={e => setNuevoUsuario({ ...nuevoUsuario, role: e.target.value })}
-              style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd" }}
-            >
-              <option value="editor">Editor</option>
-              <option value="dios">Dios</option>
-            </select>
-          </div>
-
-          <div style={{ flex: "0 0 auto", alignSelf: "end" }}>
-            <button type="submit" style={{ padding: "10px 16px", borderRadius: 6, border: "none", background: "#2563eb", color: "#fff", fontWeight: 600, cursor: "pointer" }}>
-              Crear
-            </button>
-          </div>
+          <select
+            value={nuevo.role}
+            onChange={(e) => setNuevo(n => ({ ...n, role: e.target.value }))}
+          >
+            <option value="editor">Editor</option>
+            <option value="dios">Dios</option>
+            <option value="invitado">Invitado</option>
+          </select>
+          <button onClick={onCrear}>Crear</button>
         </div>
-      </form>
 
-      {/* Usuarios existentes */}
-      <h4 style={{ marginTop: 0 }}>Usuarios existentes</h4>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th style={{ border: "1px solid #eee", padding: 8, textAlign: "left" }}>Usuario</th>
-            <th style={{ border: "1px solid #eee", padding: 8, textAlign: "left" }}>Rol</th>
-            <th style={{ border: "1px solid #eee", padding: 8, textAlign: "left" }}>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {usuarios.map((usuario) =>
-            editando === usuario.username ? (
-              <tr key={usuario.username}>
-                <td style={{ border: "1px solid #f3f3f3", padding: 8 }}>
+        {/* Permisos por defecto para el nuevo (sólo cuando no sea dios) */}
+        {nuevo.role !== "dios" && (
+          <div style={{ marginTop: 10 }}>
+            <small style={{ display: "block", marginBottom: 6, opacity: 0.8 }}>
+              Permisos por defecto para este usuario:
+            </small>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+              {permisosKeys.map((key) => (
+                <label key={key} style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <input
-                    value={editData.username}
-                    disabled
-                    style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd", background: "#f9f9f9" }}
-                    aria-label="Usuario (no editable)"
+                    type="checkbox"
+                    checked={!!nuevo.permisos?.[key]}
+                    onChange={() =>
+                      setNuevo(n => ({ ...n, permisos: { ...n.permisos, [key]: !n.permisos?.[key] } }))
+                    }
                   />
-                </td>
-                <td style={{ border: "1px solid #f3f3f3", padding: 8 }}>
+                  {key}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Listado */}
+      <div style={{ background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 2px 12px #0001" }}>
+        <h3 className="subtitulo" style={{ marginTop: 0 }}>Usuarios existentes</h3>
+
+        <table className="tabla">
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Rol</th>
+              <th>Permisos</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {usuarios.map((u) => (
+              <tr key={u.username}>
+                <td>{u.username}</td>
+                <td>
                   <select
-                    value={editData.role}
-                    onChange={e => setEditData({ ...editData, role: e.target.value })}
-                    style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd" }}
+                    value={u.role}
+                    onChange={(e) => changeRole(u, e.target.value)}
                   >
                     <option value="editor">Editor</option>
                     <option value="dios">Dios</option>
+                    <option value="invitado">Invitado</option>
                   </select>
                 </td>
-                <td style={{ border: "1px solid #f3f3f3", padding: 8 }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <div style={{ flex: "1 1 auto", position: "relative" }}>
-                      <input
-                        id="editar-password"
-                        name="new-password"
-                        type={mostrarPassEdit ? "text" : "password"}
-                        placeholder="Nueva contraseña"
-                        value={editData.password}
-                        onChange={e => setEditData({ ...editData, password: e.target.value })}
-                        autoComplete="new-password"
-                        style={{ width: "100%", padding: "8px 70px 8px 8px", borderRadius: 6, border: "1px solid #ddd" }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setMostrarPassEdit(v => !v)}
-                        title={mostrarPassEdit ? "Ocultar contraseña" : "Mostrar contraseña"}
-                        style={{
-                          position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
-                          padding: "6px 10px", borderRadius: 6, border: "1px solid #ccc",
-                          background: "#eee", cursor: "pointer", fontSize: 12
-                        }}
-                      >
-                        {mostrarPassEdit ? "Ocultar" : "Ver"}
-                      </button>
+                <td style={{ textAlign: "left" }}>
+                  {u.role === "dios" ? (
+                    <i>Tiene todos los permisos</i>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                      {permisosKeys.map((key) => (
+                        <label key={key} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <input
+                            type="checkbox"
+                            checked={!!u.permisos?.[key]}
+                            onChange={() => togglePermUser(u, key)}
+                          />
+                          {key}
+                        </label>
+                      ))}
                     </div>
+                  )}
+                </td>
+                <td>
+                  {u.role !== "dios" && (
+                    <button
+                      style={{ background: "#c53030" }}
+                      onClick={() => eliminarUsuario(u.username)}
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-                    <button
-                      onClick={handleGuardarEdicion}
-                      style={{ padding: "8px 12px", borderRadius: 6, border: "none", background: "#16a34a", color: "#fff", fontWeight: 600, cursor: "pointer" }}
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      onClick={() => setEditando(null)}
-                      style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              <tr key={usuario.username}>
-                <td style={{ border: "1px solid #f3f3f3", padding: 8 }}>{usuario.username}</td>
-                <td style={{ border: "1px solid #f3f3f3", padding: 8 }}>{usuario.role}</td>
-                <td style={{ border: "1px solid #f3f3f3", padding: 8 }}>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      onClick={() => handleEditar(usuario)}
-                      style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}
-                    >
-                      Editar
-                    </button>
-                    {usuario.username !== "che.gustrago" && (
-                      <button
-                        onClick={() => eliminarUsuario(usuario.username)}
-                        style={{ padding: "8px 12px", borderRadius: 6, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer" }}
-                        title="Eliminar usuario"
-                      >
-                        Eliminar
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            )
-          )}
-        </tbody>
-      </table>
+        <p style={{ marginTop: 10, opacity: 0.8 }}>
+          Tip: si quieres ocultar <b>Auditoría</b> para todos los editores, desmarca su permiso aquí.
+        </p>
+      </div>
     </div>
   );
 }
