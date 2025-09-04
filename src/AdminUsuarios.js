@@ -1,126 +1,179 @@
 // src/AdminUsuarios.js
 import React, { useMemo, useState } from "react";
 
-export default function AdminUsuarios({
-  usuarios,
-  setUsuarios,
-  agregarUsuario,
-  eliminarUsuario,
-  actualizarUsuario,
-  defaultPerms = {},
-}) {
-  const [nuevo, setNuevo] = useState({
-    username: "",
-    password: "",
-    role: "editor",
-    permisos: defaultPerms,
-    mostrarPass: false,
-  });
+/* ------ helpers de storage ------ */
+const LS_KEY = "usuarios";
+const loadUsers = () => {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+const saveUsers = (arr) => {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(arr));
+  } catch {}
+};
 
-  const permisosKeys = useMemo(() => Object.keys(defaultPerms), [defaultPerms]);
+/* ------ permisos conocidos (keys que usa el menú) ------ */
+const PERM_KEYS = [
+  "auditoria",
+  "rutasActivas",
+  "registrarEntrega",
+  "entregas",
+  "registrarPunto",
+  "graficos",
+  "mapa",
+  "estadisticasCamion",
+  "comparacionSemanal",
+  "rutasPorCamion",
+  "noEntregadas",
+  "entregasApp",
+];
 
-  const onCrear = () => {
-    const username = (nuevo.username || "").trim();
-    const password = (nuevo.password || "").trim();
-    if (!username || !password) return alert("Usuario y contraseña son obligatorios.");
+/* permisos por defecto por rol */
+function defaultPermisosFor(role) {
+  const base = Object.fromEntries(PERM_KEYS.map((k) => [k, false]));
+  if (role === "dios") {
+    // todo habilitado
+    return Object.fromEntries(PERM_KEYS.map((k) => [k, true]));
+  }
+  if (role === "editor") {
+    return {
+      ...base,
+      auditoria: false,
+      rutasActivas: true,
+      registrarEntrega: true,
+      entregas: true,
+      registrarPunto: true,
+      graficos: true,
+      mapa: true,
+      estadisticasCamion: true,
+      comparacionSemanal: true,
+      rutasPorCamion: true,
+      noEntregadas: true,
+      entregasApp: true,
+    };
+  }
+  // invitado (muy limitado)
+  return {
+    ...base,
+    mapa: true,
+    graficos: true,
+    estadisticasCamion: true,
+    comparacionSemanal: true,
+  };
+}
 
-    const basePerms =
-      nuevo.role === "dios"
-        ? Object.fromEntries(permisosKeys.map(k => [k, true]))
-        : { ...defaultPerms, ...nuevo.permisos };
+export default function AdminUsuarios({ usuarios, setUsuarios, agregarUsuario, eliminarUsuario, cambiarContraseña }) {
+  // si vienen desde App se usan; si no, se carga localmente
+  const [users, setUsers] = useState(() => usuarios || loadUsers() || []);
 
-    agregarUsuario({
-      username,
-      password,
-      role: nuevo.role,
-      permisos: basePerms,
-    });
+  const [nuevoUser, setNuevoUser] = useState("");
+  const [nuevoPass, setNuevoPass] = useState("");
+  const [nuevoRol, setNuevoRol] = useState("editor");
+  const [nuevoPerms, setNuevoPerms] = useState(defaultPermisosFor("editor"));
 
-    setNuevo({
-      username: "",
-      password: "",
-      role: "editor",
-      permisos: defaultPerms,
-      mostrarPass: false,
-    });
+  const viewUsers = useMemo(() => usuarios || users, [usuarios, users]);
+  const setAll = (arr) => {
+    saveUsers(arr);
+    if (setUsuarios) setUsuarios(arr);
+    setUsers(arr);
   };
 
-  const togglePermUser = (u, key) => {
-    const next = { ...u, permisos: { ...u.permisos, [key]: !u.permisos?.[key] } };
-    actualizarUsuario(u.username, next);
+  const onCreate = () => {
+    const username = (nuevoUser || "").trim();
+    if (!username) return alert("Escribe un nombre de usuario");
+    if (viewUsers.find((u) => u.username === username)) return alert("Ese usuario ya existe");
+    const role = nuevoRol;
+    const permisos = defaultPermisosFor(role);
+    // si tildaste permisos “por defecto” en el formulario, respétalos:
+    Object.assign(permisos, nuevoPerms);
+
+    const nuevo = { username, password: (nuevoPass || "").trim(), role, permisos };
+    setAll([...viewUsers, nuevo]);
+    setNuevoUser("");
+    setNuevoPass("");
   };
 
-  const changeRole = (u, role) => {
-    let perms = { ...u.permisos };
-    if (role === "dios") {
-      perms = Object.fromEntries(permisosKeys.map(k => [k, true]));
-    }
-    actualizarUsuario(u.username, { role, permisos: perms });
+  const onDelete = (u) => {
+    if (!window.confirm(`¿Eliminar usuario ${u.username}?`)) return;
+    setAll(viewUsers.filter((x) => x.username !== u.username));
+  };
+
+  const onRoleChange = (u, role) => {
+    const arr = viewUsers.map((x) =>
+      x.username === u.username
+        ? {
+            ...x,
+            role,
+            permisos: role === "dios" ? defaultPermisosFor("dios") : defaultPermisosFor(role),
+          }
+        : x
+    );
+    setAll(arr);
+  };
+
+  const onPermToggle = (u, key, value) => {
+    // “dios” siempre todo true
+    if (u.role === "dios") return;
+    const arr = viewUsers.map((x) =>
+      x.username === u.username ? { ...x, permisos: { ...x.permisos, [key]: !!value } } : x
+    );
+    setAll(arr);
   };
 
   return (
     <div className="main-container fade-in" style={{ maxWidth: 900, margin: "0 auto" }}>
       <h2 className="titulo">Administración de Usuarios</h2>
 
-      {/* Crear nuevo */}
-      <div style={{ background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 2px 12px #0001", marginBottom: 16 }}>
-        <h3 className="subtitulo" style={{ marginTop: 0 }}>Crear nuevo usuario</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 160px 120px", gap: 10, alignItems: "center" }}>
+      <section style={{ background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 2px 10px #0001" }}>
+        <h3 className="subtitulo">Crear nuevo usuario</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8, alignItems: "center" }}>
           <input
-            placeholder="Usuario"
-            value={nuevo.username}
-            onChange={(e) => setNuevo((n) => ({ ...n, username: e.target.value }))}
+            placeholder="usuario"
+            value={nuevoUser}
+            onChange={(e) => setNuevoUser(e.target.value)}
           />
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 8 }}>
             <input
-              placeholder="Contraseña"
-              type={nuevo.mostrarPass ? "text" : "password"}
-              value={nuevo.password}
-              onChange={(e) => setNuevo((n) => ({ ...n, password: e.target.value }))}
-              style={{ flex: 1 }}
+              placeholder="contraseña"
+              type="password"
+              value={nuevoPass}
+              onChange={(e) => setNuevoPass(e.target.value)}
             />
-            <button type="button" onClick={() => setNuevo(n => ({ ...n, mostrarPass: !n.mostrarPass }))}>
-              {nuevo.mostrarPass ? "Ocultar" : "Ver"}
-            </button>
           </div>
-          <select
-            value={nuevo.role}
-            onChange={(e) => setNuevo(n => ({ ...n, role: e.target.value }))}
-          >
+          <select value={nuevoRol} onChange={(e) => {
+            const r = e.target.value;
+            setNuevoRol(r);
+            setNuevoPerms(defaultPermisosFor(r));
+          }}>
             <option value="editor">Editor</option>
-            <option value="dios">Dios</option>
             <option value="invitado">Invitado</option>
+            <option value="dios">Dios</option>
           </select>
-          <button onClick={onCrear}>Crear</button>
+          <button onClick={onCreate}>Crear</button>
         </div>
 
-        {/* Permisos por defecto para el nuevo (sólo cuando no sea dios) */}
-        {nuevo.role !== "dios" && (
-          <div style={{ marginTop: 10 }}>
-            <small style={{ display: "block", marginBottom: 6, opacity: 0.8 }}>
-              Permisos por defecto para este usuario:
-            </small>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-              {permisosKeys.map((key) => (
-                <label key={key} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <input
-                    type="checkbox"
-                    checked={!!nuevo.permisos?.[key]}
-                    onChange={() =>
-                      setNuevo(n => ({ ...n, permisos: { ...n.permisos, [key]: !n.permisos?.[key] } }))
-                    }
-                  />
-                  {key}
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+        <p style={{ marginTop: 10, marginBottom: 6 }}>Permisos por defecto para este usuario:</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+          {PERM_KEYS.map((k) => (
+            <label key={k} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              <input
+                type="checkbox"
+                checked={!!nuevoPerms[k]}
+                onChange={(e) => setNuevoPerms((p) => ({ ...p, [k]: e.target.checked }))}
+              />
+              {k}
+            </label>
+          ))}
+        </div>
+      </section>
 
-      {/* Listado */}
-      <div style={{ background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 2px 12px #0001" }}>
-        <h3 className="subtitulo" style={{ marginTop: 0 }}>Usuarios existentes</h3>
+      <section style={{ marginTop: 20, background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 2px 10px #0001" }}>
+        <h3 className="subtitulo">Usuarios existentes</h3>
 
         <table className="tabla">
           <thead>
@@ -132,32 +185,29 @@ export default function AdminUsuarios({
             </tr>
           </thead>
           <tbody>
-            {usuarios.map((u) => (
+            {viewUsers.map((u) => (
               <tr key={u.username}>
                 <td>{u.username}</td>
                 <td>
-                  <select
-                    value={u.role}
-                    onChange={(e) => changeRole(u, e.target.value)}
-                  >
-                    <option value="editor">Editor</option>
+                  <select value={u.role} onChange={(e) => onRoleChange(u, e.target.value)}>
                     <option value="dios">Dios</option>
+                    <option value="editor">Editor</option>
                     <option value="invitado">Invitado</option>
                   </select>
                 </td>
-                <td style={{ textAlign: "left" }}>
+                <td>
                   {u.role === "dios" ? (
                     <i>Tiene todos los permisos</i>
                   ) : (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                      {permisosKeys.map((key) => (
-                        <label key={key} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                      {PERM_KEYS.map((k) => (
+                        <label key={k} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
                           <input
                             type="checkbox"
-                            checked={!!u.permisos?.[key]}
-                            onChange={() => togglePermUser(u, key)}
+                            checked={!!u.permisos?.[k]}
+                            onChange={(e) => onPermToggle(u, k, e.target.checked)}
                           />
-                          {key}
+                          {k}
                         </label>
                       ))}
                     </div>
@@ -165,10 +215,7 @@ export default function AdminUsuarios({
                 </td>
                 <td>
                   {u.role !== "dios" && (
-                    <button
-                      style={{ background: "#c53030" }}
-                      onClick={() => eliminarUsuario(u.username)}
-                    >
+                    <button style={{ background: "#ef4444" }} onClick={() => onDelete(u)}>
                       Eliminar
                     </button>
                   )}
@@ -177,11 +224,7 @@ export default function AdminUsuarios({
             ))}
           </tbody>
         </table>
-
-        <p style={{ marginTop: 10, opacity: 0.8 }}>
-          Tip: si quieres ocultar <b>Auditoría</b> para todos los editores, desmarca su permiso aquí.
-        </p>
-      </div>
+      </section>
     </div>
   );
 }
