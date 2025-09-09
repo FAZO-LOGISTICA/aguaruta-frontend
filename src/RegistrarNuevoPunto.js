@@ -34,9 +34,15 @@ const normalizeOverride = (s) => {
   return /^[AM]\d{1,2}$/.test(t) ? t : t; // lo envío igual; backend también normaliza
 };
 
-const api = axios.create({ baseURL: API_URL, timeout: 20000 });
+// ⚠️ baseURL normalizada y SIEMPRE sin usar "/" inicial en los paths
+const api = axios.create({
+  baseURL: API_URL.replace(/\/+$/, "") + "/", // ej: https://.../api/
+  timeout: 20000
+});
 const warmUp = async () => {
-  try { await api.get("/health", { timeout: 6000 }); } catch {}
+  try {
+    await api.get("health", { timeout: 6000 }); // sin slash inicial
+  } catch {}
 };
 
 export default function RegistrarNuevoPunto() {
@@ -65,7 +71,7 @@ export default function RegistrarNuevoPunto() {
       latitud: toFloat(form.latitud),
       longitud: toFloat(form.longitud),
       dia: (form.dia || "").trim() || null, // opcional, si no va, backend usa el del vecino
-      camion_override: normalizeOverride(camion) || null,
+      camion_override: normalizeOverride(camion) || null
     };
 
     // validaciones mínimas
@@ -77,12 +83,15 @@ export default function RegistrarNuevoPunto() {
       setLoading(true);
       await warmUp(); // ayuda con Render en frío
 
-      const { data } = await api.post("/registrar-nuevo-punto-auto", payload);
+      // ⚠️ sin slash inicial para NO romper baseURL
+      const { data } = await api.post("registrar-nuevo-punto-auto", payload, {
+        headers: { "Content-Type": "application/json" }
+      });
       setResp(data);
 
       if (data?.ok) {
         setMsg(
-          `Registrado. Camión: ${data.asignacion?.camion ?? "-"} | Día: ${data.asignacion?.dia ?? "-"} | ID: ${data.id ?? "(s/ID)"}`
+          `✅ Registrado. Camión: ${data.asignacion?.camion ?? "-"} | Día: ${data.asignacion?.dia ?? "-"} | ID: ${data.id ?? "(s/ID)"}`
         );
         // Limpia (deja coords para registrar varios en la misma zona)
         setForm((f) => ({ ...initForm, latitud: f.latitud, longitud: f.longitud }));
@@ -91,9 +100,10 @@ export default function RegistrarNuevoPunto() {
         setErr(data?.mensaje || "No se pudo registrar el punto.");
       }
     } catch (e2) {
+      const status = e2?.response?.status;
       const det = e2?.response?.data?.detail || e2?.message || "Error desconocido";
-      // pista típica: si es 404, faltan endpoints en backend
-      setErr(`Error: ${det}`);
+      setErr(`Error${status ? " " + status : ""}: ${det}`);
+      console.error("registrar-nuevo-punto-auto FAIL:", e2?.response || e2);
     } finally {
       setLoading(false);
     }
