@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { toast } from "sonner";
-import { api } from "./services/api"; // axios centralizado
+import { apiMethods } from "./services/api"; // ✅ usamos apiMethods centralizado
 import "./App.css";
 
 /* -------------------- utils -------------------- */
@@ -22,12 +22,12 @@ const toNumberOrNull = (v) => {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// GET /rutas-activas con warm-up + reintentos
+// GET /rutas-activas con reintentos
 async function fetchRutasActivasConReintentos(intentos = 3) {
   let delay = 1500;
   for (let i = 0; i < intentos; i++) {
     try {
-      const { data } = await api.get("/rutas-activas", { timeout: 15000 });
+      const data = await apiMethods.getRutasActivas();
       return Array.isArray(data) ? data : [];
     } catch (e) {
       if (i === intentos - 1) throw e;
@@ -37,7 +37,7 @@ async function fetchRutasActivasConReintentos(intentos = 3) {
   }
 }
 
-// ✅ usa SOLO el id real que devuelve el backend
+// Normalizar fila de backend → frontend
 const normalizaFila = (r) => ({
   id: r.id ?? null,
   camion: r.camion ?? r.CAMION ?? r.camion_asignado ?? r.id_camion ?? "",
@@ -79,17 +79,20 @@ export default function RutasActivas() {
         }
         return;
       } catch (e) {
-        console.warn("Backend /rutas-activas no disponible, uso fallback:", e?.message || e);
+        console.warn("Backend /rutas-activas no disponible:", e?.message || e);
       }
 
       // Fallback JSON local
       try {
-        const { data } = await api.get("/datos/RutasMapaFinal_con_telefono.json");
-        if (!cancel) {
-          setDatos((Array.isArray(data) ? data : []).map(normalizaFila));
-          setWarning("Mostrando datos de respaldo (solo lectura).");
-          setSoloLectura(true);
-          setCargando(false);
+        const resp = await fetch("/datos/RutasMapaFinal_con_telefono.json");
+        if (resp.ok) {
+          const data = await resp.json();
+          if (!cancel) {
+            setDatos((Array.isArray(data) ? data : []).map(normalizaFila));
+            setWarning("Mostrando datos de respaldo (solo lectura).");
+            setSoloLectura(true);
+            setCargando(false);
+          }
         }
       } catch {
         if (!cancel) {
@@ -140,7 +143,7 @@ export default function RutasActivas() {
 
     try {
       setGuardando(true);
-      await api.put(`/rutas-activas/${row.id}`, diff);
+      await apiMethods.updateRutaActiva(row.id, diff);
       setDatos((prev) => prev.map((r0) => (r0.id === row.id ? { ...r0, ...diff } : r0)));
       toast.success("✅ Cambios guardados");
       setEditandoId(null);
@@ -164,7 +167,7 @@ export default function RutasActivas() {
     if (!window.confirm(`¿Eliminar “${row.nombre || "registro"}”?`)) return;
 
     try {
-      await api.delete(`/rutas-activas/${row.id}`);
+      await apiMethods.deleteRutaActiva(row.id);
       setDatos((prev) => prev.filter((r0) => r0.id !== row.id));
       toast.success("🗑️ Registro eliminado");
     } catch (e) {
