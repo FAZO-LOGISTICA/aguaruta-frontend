@@ -1,77 +1,48 @@
+// src/services/api.js
 import axios from "axios";
 
 const BASE_URL = process.env.REACT_APP_BACKEND_URL;
 
-// Crear instancia de Axios
-const api = axios.create({
+// ✅ instancia centralizada de axios
+export const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000, // 15s timeout
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Interceptor para manejar errores globalmente
+// Interceptor para logs y manejo de errores
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error("API error:", error);
-    return Promise.reject(
-      error.response?.data?.detail || "Error en la comunicación con el servidor"
-    );
+    console.error("❌ API error:", error?.response || error.message);
+    return Promise.reject(error);
   }
 );
 
+/* ---------------- Métodos de API ---------------- */
 export const apiMethods = {
-  // Obtener rutas activas
-  getRutasActivas: async () => {
-    const res = await api.get("/rutas-activas");
-    return res.data;
-  },
+  // Rutas activas
+  getRutasActivas: () => api.get("/rutas-activas"),
 
-  // Registrar entrega desde la app móvil (JSON o FormData con foto)
-  registrarEntrega: async (data) => {
-    let config = {};
-    let body = data;
+  updateRutaActiva: (id, data) => api.put(`/rutas-activas/${id}`, data),
 
-    // Si viene una foto, usamos FormData
-    if (data.foto) {
-      body = new FormData();
-      body.append("entrega_id", data.entrega_id);
-      body.append("estado", data.estado);
-      if (data.notas) body.append("notas", data.notas);
-      if (data.latitud_entrega) body.append("latitud_entrega", data.latitud_entrega);
-      if (data.longitud_entrega) body.append("longitud_entrega", data.longitud_entrega);
-      body.append("foto", data.foto);
+  deleteRutaActiva: (id) => api.delete(`/rutas-activas/${id}`),
 
-      config.headers = { "Content-Type": "multipart/form-data" };
-    }
+  // Entregas desde la app móvil
+  registrarEntrega: (formData) =>
+    api.post("/entregas-app", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 
-    const res = await api.post("/entregas-app", body, config);
-    return res.data;
-  },
+  // Camiones
+  getCamiones: () => api.get("/camiones"),
 
-  // Listar camiones
-  getCamiones: async () => {
-    const res = await api.get("/camiones");
-    return res.data;
-  },
+  // Estadísticas y dashboard
+  getEstadisticasDashboard: (fecha) =>
+    api.get(`/estadisticas?fecha=${fecha}`),
 
-  // Obtener ruta diaria por conductor y fecha
-  getRutaDiaria: async (conductorCodigo, fecha) => {
-    const res = await api.get(`/rutas-diarias/${conductorCodigo}?fecha=${fecha}`);
-    return res.data;
-  },
-
-  // Estadísticas del dashboard
-  getEstadisticasDashboard: async (fecha) => {
-    const res = await api.get(`/dashboard/estadisticas?fecha=${fecha}`);
-    return res.data;
-  },
-
-  // Entregas en tiempo real
-  getEntregasTiempoReal: async (fecha) => {
-    const res = await api.get(`/dashboard/entregas?fecha=${fecha}`);
-    return res.data;
-  },
+  getEntregasTiempoReal: (fecha) =>
+    api.get(`/entregas-tiempo-real?fecha=${fecha}`),
 };
