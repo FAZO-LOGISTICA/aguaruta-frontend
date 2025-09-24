@@ -1,7 +1,7 @@
 // src/RegistrarEntrega.js
-import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
+import React, { useState, useEffect } from "react";
 import axios from "axios";
-import API_URL from "./config"; // ✅ este archivo está en src/
+import API_URL from "./config"; // ✅ asegúrate que apunte al backend Render
 import "./App.css";
 
 const RegistrarEntrega = () => {
@@ -13,6 +13,7 @@ const RegistrarEntrega = () => {
   const [mensaje, setMensaje] = useState("");
   const [cargando, setCargando] = useState(false);
 
+  // 🚚 Cargar beneficiarios
   useEffect(() => {
     axios
       .get(`${API_URL}/rutas-activas`)
@@ -23,7 +24,7 @@ const RegistrarEntrega = () => {
       });
   }, []);
 
-  // Cuando escoges un nombre, proponemos sus litros/camión por defecto
+  // 📝 Autocompletar litros y camión al seleccionar nombre
   useEffect(() => {
     const p = puntos.find((x) => x.nombre === nombre);
     if (p) {
@@ -46,7 +47,6 @@ const RegistrarEntrega = () => {
       return;
     }
 
-    // /entregas-app requiere latitud/longitud obligatorias (float)
     if (punto.latitud == null || punto.longitud == null) {
       setMensaje("❌ Ese beneficiario no tiene coordenadas registradas.");
       return;
@@ -60,25 +60,20 @@ const RegistrarEntrega = () => {
 
     try {
       setCargando(true);
-      const fd = new FormData();
-      fd.append("nombre", nombre);
-      fd.append("camion", camion);
-      fd.append("litros", String(litrosNum));
-      fd.append("estado", "1"); // entregada
-      fd.append("fecha", fecha); // YYYY-MM-DD
-      fd.append("latitud", String(punto.latitud));
-      fd.append("longitud", String(punto.longitud));
-      // foto: opcional, no adjuntamos en registro manual
 
-      await axios.post(`${API_URL}/entregas-app`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
+      // ✅ Ahora usamos el endpoint correcto /registrar-entregas
+      await axios.post(`${API_URL}/registrar-entregas`, {
+        nombre,
+        camion,
+        litros: litrosNum,
+        estado: 1, // entregada manual
+        fecha, // YYYY-MM-DD
+        latitud: punto.latitud,
+        longitud: punto.longitud,
       });
 
       setMensaje("✅ Entrega registrada correctamente.");
-      // Limpia solo litros/camión si quieres seguir con el mismo nombre
-      // setNombre("");
       setLitros("");
-      // setCamion("");
     } catch (err) {
       console.error("Error al registrar entrega:", err);
       const det =
@@ -147,4 +142,3 @@ const RegistrarEntrega = () => {
 };
 
 export default RegistrarEntrega;
-
