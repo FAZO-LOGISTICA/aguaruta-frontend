@@ -33,7 +33,9 @@ export default function NoEntregadas() {
       const params = { desde, hasta };
       if (camion) params.camion = camion;
       if (estado !== "") params.estado = Number(estado); // 0/2/3
-      const res = await axios.get(`${API_URL}/entregas`, { params });
+
+      // 🔄 ahora consumimos el consolidado
+      const res = await axios.get(`${API_URL}/entregas-todas`, { params });
       setRows(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.error(e);
