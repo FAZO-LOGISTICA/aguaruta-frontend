@@ -16,18 +16,21 @@ const CamionEstadisticas = () => {
 
   const rol = localStorage.getItem('rol');
 
+  // 🔄 Ahora cargamos de /entregas-todas
   useEffect(() => {
-    axios.get(`${API_URL}/rutas-activas`)
+    axios.get(`${API_URL}/entregas-todas`)
       .then(res => setDatos(Array.isArray(res.data) ? res.data : []))
       .catch(err => console.error('Error al cargar datos:', err));
   }, []);
 
+  // 🔎 Filtro por camión
   const datosFiltrados = useMemo(() => {
     return camionSeleccionado === 'Todos'
       ? datos
       : datos.filter(d => d.camion === camionSeleccionado);
   }, [datos, camionSeleccionado]);
 
+  // 📊 Resumen por camión y día
   const resumen = useMemo(() => {
     const acc = {};
     for (const item of datosFiltrados) {
@@ -45,6 +48,7 @@ const CamionEstadisticas = () => {
     return [...new Set(datos.map(d => d.camion).filter(Boolean))].sort();
   }, [datos]);
 
+  // 📤 Exportar a Excel
   const exportarExcel = () => {
     const ws = XLSX.utils.json_to_sheet(resumen);
     const wb = XLSX.utils.book_new();
@@ -52,6 +56,7 @@ const CamionEstadisticas = () => {
     XLSX.writeFile(wb, 'estadisticas_camion_dia.xlsx');
   };
 
+  // 📤 Exportar a PDF
   const exportarPDF = () => {
     const doc = new jsPDF();
     doc.text('Estadísticas por Camión y Día', 14, 15);
@@ -110,7 +115,7 @@ const CamionEstadisticas = () => {
           <YAxis />
           <Tooltip />
           <Legend />
-          <Bar dataKey="total_litros" name="Litros" />
+          <Bar dataKey="total_litros" name="Litros" fill="#2563eb" />
         </BarChart>
       </ResponsiveContainer>
     </div>
