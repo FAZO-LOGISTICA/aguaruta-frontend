@@ -20,9 +20,10 @@ const Graficos = () => {
   const [camion, setCamion] = useState("Todos");
   const [dia, setDia] = useState("Todos");
 
+  // 🔄 Ahora cargamos de /entregas-todas
   useEffect(() => {
     axios
-      .get(`${API_URL}/rutas-activas`)
+      .get(`${API_URL}/entregas-todas`)
       .then((res) => setDatos(Array.isArray(res.data) ? res.data : []))
       .catch((err) => console.error("Error al cargar datos:", err));
   }, []);
@@ -52,28 +53,27 @@ const Graficos = () => {
     const acc = {};
     for (const r of datosFiltrados) {
       const c = r.camion || "Sin Camión";
-      if (!acc[c]) acc[c] = { camion: c, total_litros: 0, total_puntos: 0 };
+      if (!acc[c]) acc[c] = { camion: c, total_litros: 0, total_entregas: 0 };
       acc[c].total_litros += Number(r.litros || 0);
-      acc[c].total_puntos += 1;
+      acc[c].total_entregas += 1;
     }
     return Object.values(acc).sort((a, b) => a.camion.localeCompare(b.camion));
   }, [datosFiltrados]);
 
-  // 2) Resumen: Puntos por día (ordenado Lun→Dom)
+  // 2) Resumen: Entregas por día
   const resumenPuntosPorDia = useMemo(() => {
     const acc = {};
     for (const r of datosFiltrados) {
       const nd = normalizaDia(r.dia);
       const key = DIAS_ORDEN.includes(nd) ? nd : nd || "SIN_DIA";
-      if (!acc[key]) acc[key] = { dia: key, total_puntos: 0 };
-      acc[key].total_puntos += 1;
+      if (!acc[key]) acc[key] = { dia: key, total_entregas: 0 };
+      acc[key].total_entregas += 1;
     }
     const ordenado = Object.values(acc).sort((a, b) => {
       const ia = DIAS_ORDEN.indexOf(a.dia);
       const ib = DIAS_ORDEN.indexOf(b.dia);
       return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
     });
-    // reponer tildes visualmente
     return ordenado.map((x) => ({
       ...x,
       dia: x.dia.replace("MIERCOLES", "MIÉRCOLES").replace("SABADO", "SÁBADO"),
@@ -109,16 +109,16 @@ const Graficos = () => {
           <YAxis />
           <Tooltip />
           <Legend />
-          <Bar dataKey="total_litros" name="Litros" />
+          <Bar dataKey="total_litros" name="Litros" fill="#2563eb" />
         </BarChart>
       </ResponsiveContainer>
 
-      <h3 className="subtitulo" style={{ marginTop: 24 }}>Proporción de puntos por día</h3>
+      <h3 className="subtitulo" style={{ marginTop: 24 }}>Proporción de entregas por día</h3>
       <ResponsiveContainer width="100%" height={320}>
         <PieChart>
           <Pie
             data={resumenPuntosPorDia}
-            dataKey="total_puntos"
+            dataKey="total_entregas"
             nameKey="dia"
             cx="50%"
             cy="50%"
