@@ -22,9 +22,10 @@ const ComparacionSemanal = () => {
   const [camion, setCamion] = useState("Todos");
   const rol = localStorage.getItem("rol");
 
+  // 🔄 Ahora cargamos de /entregas-todas
   useEffect(() => {
     axios
-      .get(`${API_URL}/rutas-activas`)
+      .get(`${API_URL}/entregas-todas`)
       .then((res) => setDatos(Array.isArray(res.data) ? res.data : []))
       .catch((err) => console.error("Error al cargar datos:", err));
   }, []);
@@ -103,7 +104,7 @@ const ComparacionSemanal = () => {
           <YAxis />
           <Tooltip />
           <Legend />
-          <Bar dataKey="total_litros" name="Litros Entregados" />
+          <Bar dataKey="total_litros" name="Litros Entregados" fill="#2563eb" />
         </BarChart>
       </ResponsiveContainer>
 
