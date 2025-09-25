@@ -1,33 +1,33 @@
 // src/RutasPorCamion.js
-import React, { useState, useEffect } from 'react';   // ✅ ajusta los hooks que realmente uses
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import API_URL from "./config";   // ✅ directo en src/
+import API_URL from "./config";
 import "./App.css";
 
 const RutasPorCamion = () => {
-  const [rutas, setRutas] = useState([]);
+  const [entregas, setEntregas] = useState([]);
   const [resumen, setResumen] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
 
-  // Para ocultar export a invitados (opcional)
   const rol = localStorage.getItem("rol");
 
   useEffect(() => {
     const cargar = async () => {
       try {
         setCargando(true);
-        const res = await axios.get(`${API_URL}/rutas-activas`);
+        // ✅ Consolidado: manuales + app
+        const res = await axios.get(`${API_URL}/entregas-todas`);
         const data = Array.isArray(res.data) ? res.data : [];
-        setRutas(data);
+        setEntregas(data);
         agruparPorCamion(data);
         setError(null);
       } catch (e) {
-        console.error("Error al cargar datos:", e);
-        setError("No se pudieron cargar las rutas.");
+        console.error("Error al cargar entregas:", e);
+        setError("No se pudieron cargar los datos.");
       } finally {
         setCargando(false);
       }
@@ -51,7 +51,7 @@ const RutasPorCamion = () => {
       acc[camion].totalEntregas += 1;
       acc[camion].totalLitros += Number(r.litros || 0);
       if (r.dia) acc[camion].diasSet.add(r.dia);
-      if (r.sector) acc[camion].sectoresSet.add(r.sector); // sector es opcional
+      if (r.sector) acc[camion].sectoresSet.add(r.sector);
     }
 
     const resumenFinal = Object.values(acc)
@@ -59,8 +59,10 @@ const RutasPorCamion = () => {
         camion: x.camion,
         totalEntregas: x.totalEntregas,
         totalLitros: x.totalLitros,
-        dias: Array.from(x.diasSet).join(", "),
-        sectores: x.sectoresSet.size ? Array.from(x.sectoresSet).join(", ") : "-",
+        dias: Array.from(x.diasSet).join(", ") || "—",
+        sectores: x.sectoresSet.size
+          ? Array.from(x.sectoresSet).join(", ")
+          : "—",
       }))
       .sort((a, b) => String(a.camion).localeCompare(String(b.camion)));
 
@@ -76,6 +78,7 @@ const RutasPorCamion = () => {
 
   const exportarPDF = () => {
     const doc = new jsPDF();
+    doc.text("Resumen de Entregas por Camión", 14, 15);
     doc.autoTable({
       head: [["Camión", "Total Entregas", "Total Litros", "Días", "Sectores"]],
       body: resumen.map((r) => [
@@ -85,16 +88,27 @@ const RutasPorCamion = () => {
         r.dias,
         r.sectores,
       ]),
+      startY: 20,
     });
     doc.save("resumen_por_camion.pdf");
   };
 
-  if (cargando) return <div className="main-container"><p>Cargando…</p></div>;
-  if (error) return <div className="main-container"><p>{error}</p></div>;
+  if (cargando)
+    return (
+      <div className="main-container">
+        <p>Cargando…</p>
+      </div>
+    );
+  if (error)
+    return (
+      <div className="main-container">
+        <p>{error}</p>
+      </div>
+    );
 
   return (
     <div className="main-container fade-in">
-      <h2 className="titulo">Resumen de Rutas por Camión</h2>
+      <h2 className="titulo">Resumen de Entregas por Camión</h2>
 
       {rol !== "invitado" && (
         <div className="botones-exportar">
@@ -120,7 +134,9 @@ const RutasPorCamion = () => {
               <td>{r.totalEntregas}</td>
               <td>{r.totalLitros}</td>
               <td>{r.dias}</td>
-              <td style={{ textAlign: "justify", maxWidth: 600 }}>{r.sectores}</td>
+              <td style={{ textAlign: "justify", maxWidth: 600 }}>
+                {r.sectores}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -130,4 +146,3 @@ const RutasPorCamion = () => {
 };
 
 export default RutasPorCamion;
-
