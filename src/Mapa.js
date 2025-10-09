@@ -12,7 +12,7 @@ import "./App.css";
 
 /* ================= Axios con warm-up ================= */
 const api = axios.create({
-  baseURL: API_URL, // Ej: "https://aguaruta-backend.onrender.com"
+  baseURL: API_URL,
   timeout: 60000,
 });
 
@@ -24,14 +24,12 @@ async function warmUp() {
   } catch {}
 }
 
-/* ================= Función de carga de rutas ================= */
 async function fetchRutasActivas(intentos = 3) {
   await warmUp();
   let delay = 1500;
   for (let i = 0; i < intentos; i++) {
     try {
       const { data } = await api.get("/rutas-activas");
-      // ✅ Backend devuelve { data: [...] }
       return Array.isArray(data.data) ? data.data : [];
     } catch (e) {
       if (i === intentos - 1) throw e;
@@ -42,13 +40,6 @@ async function fetchRutasActivas(intentos = 3) {
 }
 
 /* ================= Utils ================= */
-const toNum = (v) => {
-  if (v === null || v === undefined) return null;
-  const n = Number(String(v).trim().replace(",", "."));
-  return Number.isFinite(n) ? n : null;
-};
-
-// ✅ Versión final que convierte correctamente coordenadas string → número
 function normaliza(r, idx) {
   const latRaw = r.latitud ?? r.lat ?? r.latitude ?? r.Latitud ?? "";
   const lonRaw = r.longitud ?? r.lon ?? r.lng ?? r.longitude ?? r.Longitud ?? "";
@@ -75,7 +66,6 @@ function crearIcono(color = "#007bff", size = 12, border = "#fff") {
     html: `<div style="
       width:${s}px;height:${s}px;background:${color};
       border-radius:50%;border:2px solid ${border};
-      box-shadow:0 0 0 0 rgba(0,0,0,0.15);
     "></div>`,
     iconSize: [s, s],
     iconAnchor: [s / 2, s / 2],
@@ -86,7 +76,6 @@ function crearIcono(color = "#007bff", size = 12, border = "#fff") {
 /* ================= Leyenda ================= */
 function LegendControl({ items }) {
   const map = useMap();
-
   useEffect(() => {
     if (!map) return;
     const legend = L.control({ position: "bottomleft" });
@@ -103,7 +92,6 @@ function LegendControl({ items }) {
     legend.addTo(map);
     return () => legend.remove();
   }, [map, items]);
-
   return null;
 }
 
@@ -111,14 +99,12 @@ function LegendControl({ items }) {
 export default function Mapa() {
   const [puntos, setPuntos] = useState([]);
   const [error, setError] = useState("");
-
   const [selected, setSelected] = useState(new Set());
   const [query, setQuery] = useState("");
 
   useEffect(() => {
     (async () => {
       setError("");
-
       try {
         const arr = await fetchRutasActivas(3);
         const norm = arr
@@ -132,7 +118,6 @@ export default function Mapa() {
       } catch (e) {
         console.warn("DB /rutas-activas error:", e?.message || e);
       }
-
       setError("⚠️ No se pudieron cargar los puntos del backend.");
     })();
   }, []);
@@ -182,10 +167,18 @@ export default function Mapa() {
     setSelected(next);
   };
 
+  // 🔍 Filtro combinado (camión + nombre + día)
   const filteredMarcadores = useMemo(() => {
-    if (!selected.size) return [];
-    return marcadores.filter((m) => selected.has(m.camion));
-  }, [marcadores, selected]);
+    const q = query.toLowerCase().trim();
+    return marcadores.filter(
+      (m) =>
+        selected.has(m.camion) &&
+        (!q ||
+          m.nombre?.toLowerCase().includes(q) ||
+          m.camion?.toLowerCase().includes(q) ||
+          m.dia?.toLowerCase().includes(q))
+    );
+  }, [marcadores, selected, query]);
 
   const legendItems = useMemo(() => {
     const base = selected.size
@@ -193,6 +186,42 @@ export default function Mapa() {
       : allCamiones;
     return base.map((c) => ({ camion: c, color: getCamionColor(c) }));
   }, [allCamiones, selected]);
+
+  /* ================= Exportar KML ================= */
+  const exportarKML = () => {
+    if (!filteredMarcadores.length) return alert("No hay puntos para exportar.");
+
+    const placemarks = filteredMarcadores
+      .map(
+        (m) => `
+      <Placemark>
+        <name>${m.nombre}</name>
+        <description><![CDATA[
+          Camión: ${m.camion}<br/>
+          Día: ${m.dia}<br/>
+          Litros: ${m.litros}<br/>
+          Teléfono: ${m.telefono}
+        ]]></description>
+        <Point><coordinates>${m.lon},${m.lat},0</coordinates></Point>
+      </Placemark>`
+      )
+      .join("\n");
+
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>
+      <kml xmlns="http://www.opengis.net/kml/2.2">
+      <Document>
+        <name>Rutas Activas AguaRuta</name>
+        ${placemarks}
+      </Document></kml>`;
+
+    const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "rutas_activas.kml";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const center = [-33.07, -71.63];
 
@@ -220,9 +249,10 @@ export default function Mapa() {
       <h2 className="titulo">Mapa de Rutas Activas</h2>
       {error && <p style={{ color: "crimson" }}>{error}</p>}
 
+      {/* ==== Filtros ==== */}
       <div className="filtros-camion">
         <div className="fila-1">
-          <strong>Filtrar por camión:</strong>
+          <strong>Filtrar / Buscar:</strong>
           <div className="acciones">
             <button onClick={selectAll}>Todos</button>
             <button onClick={selectNone}>Ninguno</button>
@@ -230,35 +260,35 @@ export default function Mapa() {
           </div>
           <input
             className="buscador"
-            placeholder="Buscar (ej. A1, M2)"
+            placeholder="Buscar por nombre, camión o día"
             value={query}
-            onChange={(e) => setQuery(e.target.value.toUpperCase())}
+            onChange={(e) => setQuery(e.target.value)}
           />
+          <button onClick={exportarKML}>🌍 Exportar KML</button>
           <span className="contador">
             Mostrando {filteredMarcadores.length} / {marcadores.length} puntos
           </span>
         </div>
 
         <div className="chips">
-          {allCamiones
-            .filter((c) => !query || c.includes(query))
-            .map((c) => {
-              const on = selected.has(c);
-              const color = getCamionColor(c);
-              return (
-                <button
-                  key={c}
-                  className={`chip ${on ? "on" : ""}`}
-                  title={`Camión ${c}`}
-                  onClick={() => toggleCamion(c)}
-                >
-                  <i style={{ background: color }} /> {c}
-                </button>
-              );
-            })}
+          {allCamiones.map((c) => {
+            const on = selected.has(c);
+            const color = getCamionColor(c);
+            return (
+              <button
+                key={c}
+                className={`chip ${on ? "on" : ""}`}
+                title={`Camión ${c}`}
+                onClick={() => toggleCamion(c)}
+              >
+                <i style={{ background: color }} /> {c}
+              </button>
+            );
+          })}
         </div>
       </div>
 
+      {/* ==== Mapa ==== */}
       <MapContainer
         center={center}
         zoom={13}
@@ -273,7 +303,6 @@ export default function Mapa() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution="&copy; OpenStreetMap contributors"
         />
-
         <LegendControl items={legendItems} />
 
         {filteredMarcadores.map((m) => {
@@ -297,83 +326,6 @@ export default function Mapa() {
           );
         })}
       </MapContainer>
-
-      <style>{`
-        .legend-camiones {
-          background: #fff;
-          padding: 6px 8px;
-          border-radius: 6px;
-          box-shadow: 0 1px 4px rgba(0,0,0,.2);
-          font: 12px/14px system-ui, Arial, sans-serif;
-        }
-        .legend-camiones .leg-item {
-          margin-right: 10px;
-          display: inline-flex;
-          align-items: center;
-        }
-        .legend-camiones i {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          display: inline-block;
-          margin-right: 6px;
-          border: 1px solid rgba(0,0,0,.25);
-        }
-
-        .filtros-camion {
-          background: rgba(255,255,255,0.9);
-          border: 1px solid #e5e7eb;
-          padding: 10px;
-          border-radius: 8px;
-          margin-bottom: 10px;
-          box-shadow: 0 1px 2px rgba(0,0,0,.04);
-        }
-        .filtros-camion .fila-1 {
-          display: flex;
-          gap: 10px;
-          align-items: center;
-          flex-wrap: wrap;
-        }
-        .filtros-camion .acciones button {
-          margin-right: 6px;
-        }
-        .filtros-camion .buscador {
-          padding: 6px 8px;
-          border: 1px solid #d0d7de;
-          border-radius: 6px;
-        }
-        .filtros-camion .contador {
-          margin-left: auto;
-          font-size: 12px;
-          opacity: 0.8;
-        }
-
-        .chips {
-          margin-top: 8px;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-        .chip {
-          border: 1px solid #d0d7de;
-          padding: 4px 8px;
-          border-radius: 999px;
-          background: #fff;
-          cursor: pointer;
-          font-size: 12px;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-        }
-        .chip.on { background: #e9ecef; }
-        .chip i {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          display: inline-block;
-          border: 1px solid rgba(0,0,0,.25);
-        }
-      `}</style>
     </main>
   );
 }
