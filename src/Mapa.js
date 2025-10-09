@@ -24,7 +24,7 @@ async function warmUp() {
   } catch {}
 }
 
-/* ================= Función corregida ================= */
+/* ================= Función de carga de rutas ================= */
 async function fetchRutasActivas(intentos = 3) {
   await warmUp();
   let delay = 1500;
@@ -48,20 +48,23 @@ const toNum = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
+// ✅ Versión final que convierte correctamente coordenadas string → número
 function normaliza(r, idx) {
-  const lat = r.latitud ?? r.lat ?? r.latitude ?? r.Latitud ?? null;
-  const lon = r.longitud ?? r.lon ?? r.lng ?? r.longitude ?? r.Longitud ?? null;
-  const dia = r.dia_asignado ?? r.dia ?? r.DIA ?? r.diaAsignado ?? null;
+  const latRaw = r.latitud ?? r.lat ?? r.latitude ?? r.Latitud ?? "";
+  const lonRaw = r.longitud ?? r.lon ?? r.lng ?? r.longitude ?? r.Longitud ?? "";
+  const lat = Number(String(latRaw).replace(",", "."));
+  const lon = Number(String(lonRaw).replace(",", "."));
+  const dia = r.dia_asignado ?? r.dia ?? r.DIA ?? r.diaAsignado ?? "";
 
   return {
     id: r.id ?? idx + 1,
-    camion: r.camion ?? r.CAMION ?? r.camion_asignado ?? r.id_camion ?? null,
-    nombre: r.nombre ?? r.NOMBRE ?? r.jefe_hogar ?? r.jefe ?? null,
-    litros: toNum(r.litros ?? r.LITROS ?? r.litros_de_entrega),
-    telefono: r.telefono ?? r.TELEFONO ?? r.phone ?? null,
+    camion: r.camion ?? r.CAMION ?? r.camion_asignado ?? r.id_camion ?? "",
+    nombre: r.nombre ?? r.NOMBRE ?? r.jefe_hogar ?? r.jefe ?? "",
+    litros: Number(r.litros ?? r.LITROS ?? r.litros_de_entrega ?? 0),
+    telefono: r.telefono ?? r.TELEFONO ?? r.phone ?? "",
     dia,
-    latitud: toNum(lat),
-    longitud: toNum(lon),
+    latitud: isNaN(lat) ? null : lat,
+    longitud: isNaN(lon) ? null : lon,
   };
 }
 
@@ -120,7 +123,7 @@ export default function Mapa() {
         const arr = await fetchRutasActivas(3);
         const norm = arr
           .map(normaliza)
-          .filter((p) => Number.isFinite(p.latitud) && Number.isFinite(p.longitud));
+          .filter((p) => p.latitud !== null && p.longitud !== null);
         if (norm.length > 0) {
           setPuntos(norm);
           window.__PUNTOS = norm;
@@ -130,7 +133,6 @@ export default function Mapa() {
         console.warn("DB /rutas-activas error:", e?.message || e);
       }
 
-      // 🔧 Sin fallback local: no se mostrarán puntos falsos.
       setError("⚠️ No se pudieron cargar los puntos del backend.");
     })();
   }, []);
