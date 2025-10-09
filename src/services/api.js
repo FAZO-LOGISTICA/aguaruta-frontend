@@ -1,18 +1,23 @@
 // src/services/api.js
+// Configuración centralizada de API para AguaRuta (Render + Netlify)
+// Autor: Equipo FAZO-LOGÍSTICA — Octubre 2025
+
 import axios from "axios";
 
-const BASE_URL = process.env.REACT_APP_BACKEND_URL;
+// ✅ URL base automática (usa .env si existe, o Render directo)
+const BASE_URL =
+  process.env.REACT_APP_BACKEND_URL || "https://aguaruta-backend.onrender.com";
 
-// ✅ instancia centralizada de axios
+// ✅ Instancia centralizada de axios
 export const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Interceptor para logs y manejo de errores
+// ✅ Interceptor global: logs y manejo de errores
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -21,28 +26,70 @@ api.interceptors.response.use(
   }
 );
 
-/* ---------------- Métodos de API ---------------- */
+/* ---------------------------------------------------------------------------
+   MÉTODOS DE API CENTRALIZADOS
+--------------------------------------------------------------------------- */
 export const apiMethods = {
-  // Rutas activas
-  getRutasActivas: () => api.get("/rutas-activas"),
+  /* ---------------- RUTAS ACTIVAS ---------------- */
+  async getRutasActivas() {
+    // El backend devuelve { data: [...] }
+    const { data } = await api.get("/rutas-activas");
+    return data.data || [];
+  },
 
-  updateRutaActiva: (id, data) => api.put(`/rutas-activas/${id}`, data),
+  async updateRutaActiva(id, payload) {
+    const { data } = await api.put(`/rutas-activas/${id}`, payload);
+    return data;
+  },
 
-  deleteRutaActiva: (id) => api.delete(`/rutas-activas/${id}`),
+  async deleteRutaActiva(id) {
+    const { data } = await api.delete(`/rutas-activas/${id}`);
+    return data;
+  },
 
-  // Entregas desde la app móvil
-  registrarEntrega: (formData) =>
-    api.post("/entregas-app", formData, {
+  /* ---------------- ENTREGAS (APP MÓVIL) ---------------- */
+  registrarEntrega(formData) {
+    return api.post("/entregas-app", formData, {
       headers: { "Content-Type": "multipart/form-data" },
-    }),
+    });
+  },
 
-  // Camiones
-  getCamiones: () => api.get("/camiones"),
+  /* ---------------- CAMIONES ---------------- */
+  async getCamiones() {
+    const { data } = await api.get("/camiones");
+    return data;
+  },
 
-  // Estadísticas y dashboard
-  getEstadisticasDashboard: (fecha) =>
-    api.get(`/estadisticas?fecha=${fecha}`),
+  /* ---------------- ESTADÍSTICAS / DASHBOARD ---------------- */
+  async getEstadisticasDashboard(fecha) {
+    const { data } = await api.get(`/estadisticas?fecha=${fecha}`);
+    return data;
+  },
 
-  getEntregasTiempoReal: (fecha) =>
-    api.get(`/entregas-tiempo-real?fecha=${fecha}`),
+  async getEntregasTiempoReal(fecha) {
+    const { data } = await api.get(`/entregas-tiempo-real?fecha=${fecha}`);
+    return data;
+  },
+
+  /* ---------------- TEST / DIAGNÓSTICO ---------------- */
+  async healthCheck() {
+    try {
+      const { data } = await api.get("/health");
+      console.log("✅ Backend activo:", data);
+      return data;
+    } catch (error) {
+      console.error("❌ Backend inactivo:", error.message);
+      return null;
+    }
+  },
 };
+
+/* ---------------------------------------------------------------------------
+   NOTA IMPORTANTE
+   - Si la tabla Rutas Activas sigue vacía, verifica que BASE_URL sea exactamente:
+     https://aguaruta-backend.onrender.com
+   - Si usas variables de entorno en Netlify, agrégala así:
+     REACT_APP_BACKEND_URL=https://aguaruta-backend.onrender.com
+--------------------------------------------------------------------------- */
+
+export default api;
