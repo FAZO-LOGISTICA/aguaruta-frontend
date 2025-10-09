@@ -1,4 +1,4 @@
-// src/Mapa.js — AguaRuta (Versión definitiva octubre 2025)
+// src/Mapa.js — AguaRuta (versión final octubre 2025)
 // Autor: Equipo FAZO-LOGÍSTICA
 
 import React, { useState, useEffect, useMemo } from "react";
@@ -10,18 +10,14 @@ import API_URL from "./config";
 import { getCamionColor, normalizeCamion } from "./config/camionColors";
 import "./App.css";
 
-/* ================= Axios con warm-up ================= */
+/* ================= Axios ================= */
 const api = axios.create({
   baseURL: API_URL,
   timeout: 60000,
 });
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
 async function warmUp() {
-  try {
-    await api.get("/health", { timeout: 8000 });
-  } catch {}
+  try { await api.get("/health", { timeout: 8000 }); } catch {}
 }
 
 async function fetchRutasActivas(intentos = 3) {
@@ -33,7 +29,7 @@ async function fetchRutasActivas(intentos = 3) {
       return Array.isArray(data.data) ? data.data : [];
     } catch (e) {
       if (i === intentos - 1) throw e;
-      await sleep(delay);
+      await new Promise(r => setTimeout(r, delay));
       delay *= 2;
     }
   }
@@ -59,13 +55,13 @@ function normaliza(r, idx) {
   };
 }
 
-function crearIcono(color = "#007bff", size = 12, border = "#fff") {
+function crearIcono(color = "#007bff", size = 12) {
   const s = Math.max(8, Math.min(18, Number(size) || 12));
   return new L.DivIcon({
     className: "custom-marker",
     html: `<div style="
       width:${s}px;height:${s}px;background:${color};
-      border-radius:50%;border:2px solid ${border};
+      border-radius:50%;border:2px solid #fff;
     "></div>`,
     iconSize: [s, s],
     iconAnchor: [s / 2, s / 2],
@@ -82,10 +78,7 @@ function LegendControl({ items }) {
     legend.onAdd = () => {
       const div = L.DomUtil.create("div", "legend-camiones");
       div.innerHTML = items
-        .map(
-          ({ camion, color }) =>
-            `<span class="leg-item"><i style="background:${color}"></i>${camion}</span>`
-        )
+        .map(({ camion, color }) => `<span class="leg-item"><i style="background:${color}"></i>${camion}</span>`)
         .join(" ");
       return div;
     };
@@ -161,13 +154,11 @@ export default function Mapa() {
   const selectNone = () => setSelected(new Set());
   const invert = () => {
     const next = new Set();
-    allCamiones.forEach((c) => {
-      if (!selected.has(c)) next.add(c);
-    });
+    allCamiones.forEach((c) => { if (!selected.has(c)) next.add(c); });
     setSelected(next);
   };
 
-  // 🔍 Filtro combinado (camión + nombre + día)
+  /* 🔍 Filtro combinado (nombre + camión + día) */
   const filteredMarcadores = useMemo(() => {
     const q = query.toLowerCase().trim();
     return marcadores.filter(
@@ -187,15 +178,18 @@ export default function Mapa() {
     return base.map((c) => ({ camion: c, color: getCamionColor(c) }));
   }, [allCamiones, selected]);
 
-  /* ================= Exportar KML ================= */
+  /* 🌍 Exportar KML */
   const exportarKML = () => {
-    if (!filteredMarcadores.length) return alert("No hay puntos para exportar.");
+    if (!filteredMarcadores.length) {
+      alert("No hay puntos visibles para exportar.");
+      return;
+    }
 
     const placemarks = filteredMarcadores
       .map(
         (m) => `
       <Placemark>
-        <name>${m.nombre}</name>
+        <name>${m.nombre || "Sin nombre"}</name>
         <description><![CDATA[
           Camión: ${m.camion}<br/>
           Día: ${m.dia}<br/>
@@ -209,17 +203,20 @@ export default function Mapa() {
 
     const kml = `<?xml version="1.0" encoding="UTF-8"?>
       <kml xmlns="http://www.opengis.net/kml/2.2">
-      <Document>
-        <name>Rutas Activas AguaRuta</name>
-        ${placemarks}
-      </Document></kml>`;
+        <Document>
+          <name>Rutas Activas AguaRuta</name>
+          ${placemarks}
+        </Document>
+      </kml>`;
 
     const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "rutas_activas.kml";
-    a.click();
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "rutas_activas.kml";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
@@ -230,9 +227,7 @@ export default function Mapa() {
       className="main-container fade-in"
       style={{
         padding: 20,
-        backgroundImage: `url(/img/valparaiso/valparaiso${
-          Math.floor(Math.random() * 9) + 1
-        }.jpg)`,
+        backgroundImage: `url(/img/valparaiso/valparaiso${Math.floor(Math.random() * 9) + 1}.jpg)`,
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
@@ -240,19 +235,16 @@ export default function Mapa() {
       <img
         src="/img/logos/logos-institucionales.png"
         alt="Logo Institucional"
-        style={{
-          display: "block",
-          margin: "0 auto 10px auto",
-          maxWidth: 300,
-        }}
+        style={{ display: "block", margin: "0 auto 10px auto", maxWidth: 300 }}
       />
+
       <h2 className="titulo">Mapa de Rutas Activas</h2>
       {error && <p style={{ color: "crimson" }}>{error}</p>}
 
-      {/* ==== Filtros ==== */}
+      {/* ==== Barra de filtros ==== */}
       <div className="filtros-camion">
         <div className="fila-1">
-          <strong>Filtrar / Buscar:</strong>
+          <strong>Buscar / Filtrar:</strong>
           <div className="acciones">
             <button onClick={selectAll}>Todos</button>
             <button onClick={selectNone}>Ninguno</button>
@@ -303,23 +295,19 @@ export default function Mapa() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution="&copy; OpenStreetMap contributors"
         />
+
         <LegendControl items={legendItems} />
 
         {filteredMarcadores.map((m) => {
           const color = getCamionColor(m.camion);
-          const size = m.camion === "M3" ? 14 : 12;
-          const icon = crearIcono(color, size, "#fff");
+          const icon = crearIcono(color, 12);
           return (
             <Marker key={m.key} position={[m.lat, m.lon]} icon={icon}>
               <Popup>
-                <strong>{m.nombre ?? "Sin nombre"}</strong>
-                <br />
-                Camión: {m.camion || "-"}
-                <br />
-                Día: {m.dia ?? "-"}
-                <br />
-                Litros: {m.litros ?? 0}
-                <br />
+                <strong>{m.nombre ?? "Sin nombre"}</strong><br />
+                Camión: {m.camion || "-"}<br />
+                Día: {m.dia ?? "-"}<br />
+                Litros: {m.litros ?? 0}<br />
                 Tel: {m.telefono ?? "-"}
               </Popup>
             </Marker>
