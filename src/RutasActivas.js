@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { toast } from "sonner";
-import { apiMethods } from "./services/api"; // ✅ usamos apiMethods centralizado
+import { apiMethods } from "./services/api"; 
 import "./App.css";
 
 /* -------------------- utils -------------------- */
@@ -22,7 +22,36 @@ const toNumberOrNull = (v) => {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// GET /rutas-activas con reintentos
+/* =====================================================
+   🔵 FAZO DATA — ENVÍO AUTOMÁTICO AL FAZO OS
+===================================================== */
+function enviarFAZOData(camionesData, diasData, puntosData) {
+  try {
+    window.parent.postMessage(
+      {
+        type: "FAZO_DATA_UPDATE",
+        payload: {
+          camiones: camionesData || [],
+          dias: diasData || [],
+          puntos: puntosData || [],
+        },
+      },
+      "*"
+    );
+
+    console.log("📤 FAZO DATA enviado:", {
+      camionesData,
+      diasData,
+      puntosData,
+    });
+  } catch (err) {
+    console.error("❌ Error enviando FAZO DATA", err);
+  }
+}
+
+/* =====================================================
+   GET /rutas-activas con reintentos
+===================================================== */
 async function fetchRutasActivasConReintentos(intentos = 3) {
   let delay = 1500;
   for (let i = 0; i < intentos; i++) {
@@ -37,7 +66,9 @@ async function fetchRutasActivasConReintentos(intentos = 3) {
   }
 }
 
-// Normalizar fila de backend → frontend
+/* =====================================================
+   Normalizar fila backend → frontend
+===================================================== */
 const normalizaFila = (r) => ({
   id: r.id ?? null,
   camion: r.camion ?? r.CAMION ?? r.camion_asignado ?? r.id_camion ?? "",
@@ -46,7 +77,9 @@ const normalizaFila = (r) => ({
   litros: toNumberOrNull(r.litros ?? r.LITROS ?? r.litros_de_entrega),
   telefono: r.telefono ?? r.TELEFONO ?? r.phone ?? "",
   latitud: toNumberOrNull(r.latitud ?? r.lat ?? r.latitude ?? r.Latitud),
-  longitud: toNumberOrNull(r.longitud ?? r.lon ?? r.lng ?? r.longitude ?? r.Longitud),
+  longitud: toNumberOrNull(
+    r.longitud ?? r.lon ?? r.lng ?? r.longitude ?? r.Longitud
+  ),
 });
 
 /* -------------------- componente -------------------- */
@@ -57,11 +90,20 @@ export default function RutasActivas() {
   const [warning, setWarning] = useState("");
   const [soloLectura, setSoloLectura] = useState(false);
 
-  const [filtro, setFiltro] = useState({ camion: "", dia: "", nombre: "", litros: "" });
+  const [filtro, setFiltro] = useState({
+    camion: "",
+    dia: "",
+    nombre: "",
+    litros: "",
+  });
+
   const [editandoId, setEditandoId] = useState(null);
   const [cambios, setCambios] = useState({});
   const [guardando, setGuardando] = useState(false);
 
+  /* =====================================================
+     🔵 CARGA DE DATOS + Envío a FAZO OS
+  ===================================================== */
   useEffect(() => {
     let cancel = false;
 
@@ -71,27 +113,51 @@ export default function RutasActivas() {
       setWarning("");
       setSoloLectura(false);
 
+      // -------------------------
+      // 1) Intentar backend real
+      // -------------------------
       try {
         const arr = await fetchRutasActivasConReintentos(3);
         if (!cancel) {
-          setDatos(arr.map(normalizaFila));
+          const normalizados = arr.map(normalizaFila);
+          setDatos(normalizados);
           setCargando(false);
+
+          // === 🔥 ENVÍO FAZO DATA ===
+          enviarFAZOData(
+            calcularCamiones(normalizados),
+            calcularDias(normalizados),
+            normalizados
+          );
         }
         return;
       } catch (e) {
         console.warn("Backend /rutas-activas no disponible:", e?.message || e);
       }
 
-      // Fallback JSON local
+      // -------------------------
+      // 2) JSON fallback
+      // -------------------------
       try {
         const resp = await fetch("/datos/RutasMapaFinal_con_telefono.json");
         if (resp.ok) {
           const data = await resp.json();
           if (!cancel) {
-            setDatos((Array.isArray(data) ? data : []).map(normalizaFila));
+            const normalizados = (Array.isArray(data) ? data : []).map(
+              normalizaFila
+            );
+
+            setDatos(normalizados);
             setWarning("Mostrando datos de respaldo (solo lectura).");
             setSoloLectura(true);
             setCargando(false);
+
+            // === 🔥 ENVÍO FAZO DATA ===
+            enviarFAZOData(
+              calcularCamiones(normalizados),
+              calcularDias(normalizados),
+              normalizados
+            );
           }
         }
       } catch {
@@ -107,6 +173,37 @@ export default function RutasActivas() {
       cancel = true;
     };
   }, []);
+
+  /* =====================================================================
+     🔵 CALCULOS PARA FAZO DATA
+  ===================================================================== */
+  function calcularCamiones(lista) {
+    const mapa = {};
+    for (let r of lista) {
+      if (!mapa[r.camion]) mapa[r.camion] = 0;
+      mapa[r.camion] += Number(r.litros || 0);
+    }
+    return Object.entries(mapa).map(([nombre, litros]) => ({
+      nombre,
+      litros,
+    }));
+  }
+
+  function calcularDias(lista) {
+    const mapa = {};
+    for (let r of lista) {
+      if (!mapa[r.dia]) mapa[r.dia] = 0;
+      mapa[r.dia] += 1;
+    }
+    return Object.entries(mapa).map(([nombre, entregas]) => ({
+      nombre,
+      entregas,
+    }));
+  }
+
+  /* =====================================================
+     Funciones UI existentes (no tocadas)
+  ===================================================== */
 
   const onEditar = (row) => {
     setEditandoId(row.id);
@@ -144,7 +241,9 @@ export default function RutasActivas() {
     try {
       setGuardando(true);
       await apiMethods.updateRutaActiva(row.id, diff);
-      setDatos((prev) => prev.map((r0) => (r0.id === row.id ? { ...r0, ...diff } : r0)));
+      setDatos((prev) =>
+        prev.map((r0) => (r0.id === row.id ? { ...r0, ...diff } : r0))
+      );
       toast.success("✅ Cambios guardados");
       setEditandoId(null);
       setCambios({});
@@ -175,7 +274,7 @@ export default function RutasActivas() {
     }
   };
 
-  /* -------- exportaciones -------- */
+  /* -------- Exportar -------- */
   const exportarExcel = () => {
     const ws = XLSX.utils.json_to_sheet(datos);
     const wb = XLSX.utils.book_new();
@@ -212,8 +311,19 @@ export default function RutasActivas() {
   }, [datos, filtro]);
 
   /* -------- UI -------- */
-  if (cargando) return <div className="main-container fade-in"><p>Cargando…</p></div>;
-  if (error) return <div className="main-container fade-in"><p>{error}</p></div>;
+  if (cargando)
+    return (
+      <div className="main-container fade-in">
+        <p>Cargando…</p>
+      </div>
+    );
+
+  if (error)
+    return (
+      <div className="main-container fade-in">
+        <p>{error}</p>
+      </div>
+    );
 
   return (
     <div className="main-container fade-in">
@@ -229,41 +339,117 @@ export default function RutasActivas() {
       <table className="tabla">
         <thead>
           <tr>
-            <th>Camión<br /><input value={filtro.camion} onChange={(e) => setFiltro({ ...filtro, camion: e.target.value })} /></th>
-            <th>Nombre<br /><input value={filtro.nombre} onChange={(e) => setFiltro({ ...filtro, nombre: e.target.value })} /></th>
-            <th>Día<br /><input value={filtro.dia} onChange={(e) => setFiltro({ ...filtro, dia: e.target.value })} /></th>
-            <th>Litros<br /><input value={filtro.litros} onChange={(e) => setFiltro({ ...filtro, litros: e.target.value })} /></th>
-            <th>Teléfono</th><th>Latitud</th><th>Longitud</th><th>Acción</th>
+            <th>
+              Camión
+              <br />
+              <input
+                value={filtro.camion}
+                onChange={(e) =>
+                  setFiltro({ ...filtro, camion: e.target.value })
+                }
+              />
+            </th>
+
+            <th>
+              Nombre
+              <br />
+              <input
+                value={filtro.nombre}
+                onChange={(e) =>
+                  setFiltro({ ...filtro, nombre: e.target.value })
+                }
+              />
+            </th>
+
+            <th>
+              Día
+              <br />
+              <input
+                value={filtro.dia}
+                onChange={(e) => setFiltro({ ...filtro, dia: e.target.value })}
+              />
+            </th>
+
+            <th>
+              Litros
+              <br />
+              <input
+                value={filtro.litros}
+                onChange={(e) =>
+                  setFiltro({ ...filtro, litros: e.target.value })
+                }
+              />
+            </th>
+
+            <th>Teléfono</th>
+            <th>Latitud</th>
+            <th>Longitud</th>
+            <th>Acción</th>
           </tr>
         </thead>
 
         <tbody>
           {datosFiltrados.map((d) => {
             const enEdicion = editandoId === d.id;
+
             return (
-              <tr key={d.id ?? `${d.camion}-${d.nombre}`} className={enEdicion ? "bg-yellow-50" : ""}>
-                {["camion", "nombre", "dia", "litros", "telefono", "latitud", "longitud"].map((campo) => (
+              <tr
+                key={d.id ?? `${d.camion}-${d.nombre}`}
+                className={enEdicion ? "bg-yellow-50" : ""}
+              >
+                {[
+                  "camion",
+                  "nombre",
+                  "dia",
+                  "litros",
+                  "telefono",
+                  "latitud",
+                  "longitud",
+                ].map((campo) => (
                   <td key={campo}>
                     {enEdicion ? (
                       <input
                         value={cambios[campo] ?? ""}
-                        onChange={(e) => setCambios({ ...cambios, [campo]: e.target.value })}
+                        onChange={(e) =>
+                          setCambios({
+                            ...cambios,
+                            [campo]: e.target.value,
+                          })
+                        }
                       />
                     ) : (
                       d[campo]
                     )}
                   </td>
                 ))}
+
                 <td>
                   {enEdicion ? (
                     <>
-                      <button onClick={() => guardarCambios(d)} disabled={guardando}>💾 Guardar</button>
-                      <button onClick={() => { setEditandoId(null); setCambios({}); }}>❌ Cancelar</button>
+                      <button
+                        onClick={() => guardarCambios(d)}
+                        disabled={guardando}
+                      >
+                        💾 Guardar
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditandoId(null);
+                          setCambios({});
+                        }}
+                      >
+                        ❌ Cancelar
+                      </button>
                       <button onClick={() => eliminarFila(d)}>🗑️ Eliminar</button>
                     </>
                   ) : (
                     <>
-                      <button onClick={() => onEditar(d)} disabled={soloLectura}>✏️ Editar</button>
+                      <button
+                        onClick={() => onEditar(d)}
+                        disabled={soloLectura}
+                      >
+                        ✏️ Editar
+                      </button>
                       <button onClick={() => eliminarFila(d)}>🗑️ Eliminar</button>
                     </>
                   )}
