@@ -1,6 +1,6 @@
 // src/App.js
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from "react-router-dom";
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from "react-router-dom";
 
 import Inicio from "./Inicio";
 import Mapa from "./Mapa";
@@ -16,7 +16,9 @@ import EntregasApp from "./EntregasApp";
 import Entregas from "./Entregas";
 import AdminUsuarios from "./AdminUsuarios";
 import LoginApp from "./LoginApp";
-import Auditoria from "./Auditoria"; // ✅ NUEVO
+import Auditoria from "./Auditoria";
+
+// ================= USUARIOS =================
 
 const usuariosEjemplo = [
   { username: "che.gustrago", password: "FAZO-LOGISTICA", role: "dios" },
@@ -24,25 +26,68 @@ const usuariosEjemplo = [
   { username: "operaciones", password: "direccion", role: "editor" }
 ];
 
-// Menú (sin las pantallas que decidiste ocultar)
+// ================= MENÚ =================
+
 const menuItems = [
-  { path: "/",                label: "Inicio",               roles: ["dios", "editor", "invitado"] },
-  { path: "/mapa",            label: "Mapa",                 roles: ["dios", "editor", "invitado"] },
-  { path: "/graficos",        label: "Gráficos",             roles: ["dios", "editor", "invitado"] },
+  { path: "/", label: "Inicio", roles: ["dios", "editor", "invitado"] },
+  { path: "/mapa", label: "Mapa", roles: ["dios", "editor", "invitado"] },
+  { path: "/graficos", label: "Gráficos", roles: ["dios", "editor", "invitado"] },
   { path: "/estadisticas-camion", label: "Estadísticas Camión", roles: ["dios", "editor", "invitado"] },
   { path: "/comparacion-semanal", label: "Comparación Semanal", roles: ["dios", "editor", "invitado"] },
-  { path: "/rutas-por-camion", label: "Rutas por Camión",    roles: ["dios", "editor", "invitado"] },
-  { path: "/rutas-activas",   label: "Ruta Activa",          roles: ["dios", "editor"] },
-  { path: "/registrar-entrega", label: "Registrar Entrega",  roles: ["dios", "editor"] },
-  { path: "/entregas",        label: "Entregas",             roles: ["dios", "editor"] },
-  { path: "/registrar-punto", label: "Registrar Punto",      roles: ["dios", "editor"] },
-  { path: "/no-entregadas",   label: "No Entregadas",        roles: ["dios", "editor"] },
-  { path: "/entregas-app",    label: "Entregas App",         roles: ["dios", "editor"] },
-  { path: "/auditoria",       label: "Auditoría",            roles: ["dios"] },     // ✅ SOLO “dios”
-  { path: "/usuarios",        label: "Usuarios",             roles: ["dios"] }
+  { path: "/rutas-por-camion", label: "Rutas por Camión", roles: ["dios", "editor", "invitado"] },
+  { path: "/rutas-activas", label: "Ruta Activa", roles: ["dios", "editor"] },
+  { path: "/registrar-entrega", label: "Registrar Entrega", roles: ["dios", "editor"] },
+  { path: "/entregas", label: "Entregas", roles: ["dios", "editor"] },
+  { path: "/registrar-punto", label: "Registrar Punto", roles: ["dios", "editor"] },
+  { path: "/no-entregadas", label: "No Entregadas", roles: ["dios", "editor"] },
+  { path: "/entregas-app", label: "Entregas App", roles: ["dios", "editor"] },
+  { path: "/auditoria", label: "Auditoría", roles: ["dios"] },
+  { path: "/usuarios", label: "Usuarios", roles: ["dios"] }
 ];
 
+// ================= CONTROL EXTERNO =================
+
+function ControladorExterno({ children, usuarioActual }) {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleMessage = (event) => {
+
+      if (
+        event.origin !== "https://fazo-logistica-aura.netlify.app" &&
+        event.origin !== "http://localhost:3000"
+      ) return;
+
+      if (!usuarioActual) return;
+
+      const { type, target } = event.data;
+
+      console.log("📩 Comando recibido desde FAZO:", event.data);
+
+      // Navegación automática
+      if (type === "GO_TO" && target) {
+        navigate(target);
+      }
+
+      // Descargar PDF de gráficos
+      if (type === "DESCARGAR_GRAFICOS_PDF") {
+        const boton = document.querySelector("#btnDescargarPDF");
+        if (boton) boton.click();
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+
+  }, [navigate, usuarioActual]);
+
+  return children;
+}
+
+// ================= APP =================
+
 function App() {
+
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [usuarios, setUsuarios] = useState(usuariosEjemplo);
 
@@ -55,114 +100,51 @@ function App() {
 
   const handleLogout = () => setUsuarioActual(null);
 
-  const agregarUsuario = (nuevo) => {
-    if (usuarios.find(u => u.username === nuevo.username)) return alert("Ese usuario ya existe.");
-    setUsuarios([...usuarios, nuevo]);
-  };
-  const eliminarUsuario = (username) => {
-    if (window.confirm("¿Eliminar usuario?")) {
-      setUsuarios(usuarios.filter(u => u.username !== username));
-    }
-  };
-  const cambiarContraseña = (username, password, role) => {
-    setUsuarios(usuarios.map(u =>
-      u.username === username
-        ? { ...u, password: password || u.password, role: role || u.role }
-        : u
-    ));
-  };
-
   return (
     <Router>
       {usuarioActual && (
-        <nav style={{ background: "#153a5e", boxShadow: "0 2px 8px #0002", padding: 0, position: "sticky", top: 0, zIndex: 100 }}>
-          <div style={{ maxWidth: 1400, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.2rem 2rem", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-              {menuItems
-                .filter(item => item.roles.includes(usuarioActual.role))
-                .map(item => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    style={{
-                      color: "#fff", textDecoration: "none", fontWeight: 600, fontSize: "1.12rem",
-                      padding: "0.55rem 0.7rem", borderRadius: "6px", transition: "background 0.2s",
-                      background: window.location.pathname === item.path ? "#2c5482" : "transparent", margin: 0, display: "block"
-                    }}
-                    onMouseOver={e => (e.target.style.background = "#20446d")}
-                    onMouseOut={e => (e.target.style.background = window.location.pathname === item.path ? "#2c5482" : "transparent")}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "1.4rem" }}>
-              <span style={{ color: "#fff", fontWeight: 400 }}>
-                Usuario: <b>{usuarioActual.username}</b> ({usuarioActual.role})
-              </span>
-              <button
-                onClick={handleLogout}
-                style={{
-                  padding: "0.42rem 1rem", borderRadius: "7px", border: "none",
-                  background: "#f03a4b", color: "#fff", fontWeight: 600, fontSize: "1rem",
-                  cursor: "pointer", boxShadow: "0 2px 5px #0001", transition: "background 0.15s"
-                }}
-                onMouseOver={e => (e.target.style.background = "#B82637")}
-                onMouseOut={e => (e.target.style.background = "#f03a4b")}
-              >
-                Cerrar sesión
-              </button>
-            </div>
-          </div>
+        <nav style={{ background: "#153a5e", padding: "0.2rem 2rem", position: "sticky", top: 0, zIndex: 100 }}>
+          {menuItems
+            .filter(item => item.roles.includes(usuarioActual.role))
+            .map(item => (
+              <Link key={item.path} to={item.path}
+                style={{ color: "#fff", marginRight: "1rem", textDecoration: "none" }}>
+                {item.label}
+              </Link>
+            ))}
+          <button onClick={handleLogout} style={{ marginLeft: "1rem" }}>
+            Cerrar sesión
+          </button>
         </nav>
       )}
 
       <Routes>
         {!usuarioActual ? (
+          <Route path="*" element={<LoginApp onLogin={handleLogin} />} />
+        ) : (
           <Route
             path="*"
-            element={<LoginApp onLogin={handleLogin} onInvitado={() => handleLogin(null, null, true)} />}
+            element={
+              <ControladorExterno usuarioActual={usuarioActual}>
+                <Routes>
+                  <Route path="/" element={<Inicio />} />
+                  <Route path="/mapa" element={<Mapa />} />
+                  <Route path="/graficos" element={<Graficos />} />
+                  <Route path="/estadisticas-camion" element={<CamionEstadisticas />} />
+                  <Route path="/comparacion-semanal" element={<ComparacionSemanal />} />
+                  <Route path="/rutas-por-camion" element={<RutasPorCamion />} />
+                  <Route path="/rutas-activas" element={<RutasActivas />} />
+                  <Route path="/registrar-entrega" element={<RegistrarEntrega />} />
+                  <Route path="/entregas" element={<Entregas />} />
+                  <Route path="/registrar-punto" element={<RegistrarNuevoPunto />} />
+                  <Route path="/no-entregadas" element={<NoEntregadas />} />
+                  <Route path="/entregas-app" element={<EntregasApp />} />
+                  <Route path="/auditoria" element={<Auditoria />} />
+                  <Route path="*" element={<Navigate to="/" />} />
+                </Routes>
+              </ControladorExterno>
+            }
           />
-        ) : (
-          <>
-            <Route path="/" element={<Inicio />} />
-            <Route path="/mapa" element={<Mapa />} />
-            <Route path="/graficos" element={<Graficos />} />
-            <Route path="/estadisticas-camion" element={<CamionEstadisticas />} />
-            <Route path="/comparacion-semanal" element={<ComparacionSemanal />} />
-            <Route path="/rutas-por-camion" element={<RutasPorCamion />} />
-            <Route path="/rutas-activas" element={<RutasActivas />} />
-            <Route path="/registrar-entrega" element={<RegistrarEntrega />} />
-            <Route path="/entregas" element={<Entregas />} />
-            <Route path="/registrar-punto" element={<RegistrarNuevoPunto />} />
-            <Route path="/no-entregadas" element={<NoEntregadas />} />
-            <Route path="/entregas-app" element={<EntregasApp />} />
-
-            {/* ✅ Auditoría solo para “dios” */}
-            <Route
-              path="/auditoria"
-              element={usuarioActual.role === "dios" ? <Auditoria /> : <Navigate to="/" />}
-            />
-
-            {/* Usuarios solo para “dios” */}
-            <Route
-              path="/usuarios"
-              element={
-                usuarioActual.role === "dios" ? (
-                  <AdminUsuarios
-                    usuarios={usuarios}
-                    setUsuarios={setUsuarios}
-                    agregarUsuario={agregarUsuario}
-                    eliminarUsuario={eliminarUsuario}
-                    cambiarContraseña={cambiarContraseña}
-                  />
-                ) : (
-                  <Navigate to="/" />
-                )
-              }
-            />
-            <Route path="*" element={<Navigate to="/" />} />
-          </>
         )}
       </Routes>
     </Router>
