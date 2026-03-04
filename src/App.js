@@ -21,7 +21,7 @@ import Auditoria from "./Auditoria";
 // ================= USUARIOS =================
 
 const usuariosEjemplo = [
-  { username: "che.gustrago", password: "FAZO-LOGISTICA", role: "dios" },
+  { username: "che.gustrago", password: "", role: "dios" },  // sin contraseña = acceso directo
   { username: "laguna_verde", password: "delegacion", role: "editor" },
   { username: "operaciones", password: "direccion", role: "editor" }
 ];
@@ -45,14 +45,13 @@ const menuItems = [
   { path: "/usuarios", label: "Usuarios", roles: ["dios"] }
 ];
 
-// ================= CONTROL EXTERNO =================
+// ================= CONTROL EXTERNO (iframe) =================
 
 function ControladorExterno({ children, usuarioActual }) {
   const navigate = useNavigate();
 
   useEffect(() => {
     const handleMessage = (event) => {
-
       if (
         event.origin !== "https://fazo-logistica-aura.netlify.app" &&
         event.origin !== "http://localhost:3000"
@@ -61,15 +60,12 @@ function ControladorExterno({ children, usuarioActual }) {
       if (!usuarioActual) return;
 
       const { type, target } = event.data;
-
       console.log("📩 Comando recibido desde FAZO:", event.data);
 
-      // Navegación automática
       if (type === "GO_TO" && target) {
         navigate(target);
       }
 
-      // Descargar PDF de gráficos
       if (type === "DESCARGAR_GRAFICOS_PDF") {
         const boton = document.querySelector("#btnDescargarPDF");
         if (boton) boton.click();
@@ -78,7 +74,6 @@ function ControladorExterno({ children, usuarioActual }) {
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-
   }, [navigate, usuarioActual]);
 
   return children;
@@ -87,18 +82,43 @@ function ControladorExterno({ children, usuarioActual }) {
 // ================= APP =================
 
 function App() {
+  const [usuarioActual, setUsuarioActual] = useState(() => {
+    // Auto-login: restaurar sesión guardada
+    try {
+      const saved = localStorage.getItem("aura_session");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  const [usuarioActual, setUsuarioActual] = useState(null);
   const [usuarios, setUsuarios] = useState(usuariosEjemplo);
 
   const handleLogin = (username, password, invitado = false) => {
-    if (invitado) { setUsuarioActual({ username: "Invitado", role: "invitado" }); return true; }
-    const user = usuarios.find(u => u.username === username && u.password === password);
-    if (user) { setUsuarioActual(user); return true; }
+    if (invitado) {
+      const u = { username: "Invitado", role: "invitado" };
+      setUsuarioActual(u);
+      return true;
+    }
+
+    // Si password está vacío en el usuario, solo verifica username
+    const user = usuarios.find(u =>
+      u.username === username &&
+      (u.password === "" || u.password === password)
+    );
+
+    if (user) {
+      setUsuarioActual(user);
+      try { localStorage.setItem("aura_session", JSON.stringify(user)); } catch {}
+      return true;
+    }
     return false;
   };
 
-  const handleLogout = () => setUsuarioActual(null);
+  const handleLogout = () => {
+    setUsuarioActual(null);
+    try { localStorage.removeItem("aura_session"); } catch {}
+  };
 
   return (
     <Router>
@@ -120,7 +140,12 @@ function App() {
 
       <Routes>
         {!usuarioActual ? (
-          <Route path="*" element={<LoginApp onLogin={handleLogin} />} />
+          <Route path="*" element={
+            <LoginApp
+              onLogin={handleLogin}
+              onInvitado={() => handleLogin("", "", true)}
+            />
+          } />
         ) : (
           <Route
             path="*"
@@ -140,6 +165,9 @@ function App() {
                   <Route path="/no-entregadas" element={<NoEntregadas />} />
                   <Route path="/entregas-app" element={<EntregasApp />} />
                   <Route path="/auditoria" element={<Auditoria />} />
+                  <Route path="/usuarios" element={
+                    <AdminUsuarios usuarios={usuarios} setUsuarios={setUsuarios} />
+                  } />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </ControladorExterno>
