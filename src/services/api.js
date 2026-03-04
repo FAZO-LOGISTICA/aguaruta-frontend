@@ -1,7 +1,6 @@
 // src/services/api.js
 // Configuración centralizada de API para AguaRuta (Render + Netlify)
 // Autor: Equipo FAZO-LOGÍSTICA — Octubre 2025
-
 import axios from "axios";
 
 // ✅ URL base automática (usa .env si existe, o Render directo)
@@ -32,16 +31,14 @@ api.interceptors.response.use(
 export const apiMethods = {
   /* ---------------- RUTAS ACTIVAS ---------------- */
   async getRutasActivas() {
-    // El backend devuelve { data: [...] }
+    // ✅ FIX: backend ahora devuelve array directo []
     const { data } = await api.get("/rutas-activas");
-    return data.data || [];
+    return Array.isArray(data) ? data : (data.data || []);
   },
-
   async updateRutaActiva(id, payload) {
     const { data } = await api.put(`/rutas-activas/${id}`, payload);
     return data;
   },
-
   async deleteRutaActiva(id) {
     const { data } = await api.delete(`/rutas-activas/${id}`);
     return data;
@@ -65,7 +62,6 @@ export const apiMethods = {
     const { data } = await api.get(`/estadisticas?fecha=${fecha}`);
     return data;
   },
-
   async getEntregasTiempoReal(fecha) {
     const { data } = await api.get(`/entregas-tiempo-real?fecha=${fecha}`);
     return data;
@@ -83,13 +79,5 @@ export const apiMethods = {
     }
   },
 };
-
-/* ---------------------------------------------------------------------------
-   NOTA IMPORTANTE
-   - Si la tabla Rutas Activas sigue vacía, verifica que BASE_URL sea exactamente:
-     https://aguaruta-backend.onrender.com
-   - Si usas variables de entorno en Netlify, agrégala así:
-     REACT_APP_BACKEND_URL=https://aguaruta-backend.onrender.com
---------------------------------------------------------------------------- */
 
 export default api;
