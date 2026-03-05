@@ -37,7 +37,6 @@ const PERM_KEYS = [
 function defaultPermisosFor(role) {
   const base = Object.fromEntries(PERM_KEYS.map((k) => [k, false]));
   if (role === "dios") {
-    // todo habilitado
     return Object.fromEntries(PERM_KEYS.map((k) => [k, true]));
   }
   if (role === "editor") {
@@ -57,7 +56,6 @@ function defaultPermisosFor(role) {
       entregasApp: true,
     };
   }
-  // invitado (muy limitado)
   return {
     ...base,
     mapa: true,
@@ -68,7 +66,6 @@ function defaultPermisosFor(role) {
 }
 
 export default function AdminUsuarios({ usuarios, setUsuarios, agregarUsuario, eliminarUsuario, cambiarContraseña }) {
-  // si vienen desde App se usan; si no, se carga localmente
   const [users, setUsers] = useState(() => usuarios || loadUsers() || []);
 
   const [nuevoUser, setNuevoUser] = useState("");
@@ -89,9 +86,7 @@ export default function AdminUsuarios({ usuarios, setUsuarios, agregarUsuario, e
     if (viewUsers.find((u) => u.username === username)) return alert("Ese usuario ya existe");
     const role = nuevoRol;
     const permisos = defaultPermisosFor(role);
-    // si tildaste permisos “por defecto” en el formulario, respétalos:
     Object.assign(permisos, nuevoPerms);
-
     const nuevo = { username, password: (nuevoPass || "").trim(), role, permisos };
     setAll([...viewUsers, nuevo]);
     setNuevoUser("");
@@ -103,21 +98,22 @@ export default function AdminUsuarios({ usuarios, setUsuarios, agregarUsuario, e
     setAll(viewUsers.filter((x) => x.username !== u.username));
   };
 
+  // ✅ NUEVO: borrar todos los usuarios
+  const onDeleteAll = () => {
+    if (!window.confirm("¿Eliminar TODOS los usuarios? Esta acción no se puede deshacer.")) return;
+    setAll([]);
+  };
+
   const onRoleChange = (u, role) => {
     const arr = viewUsers.map((x) =>
       x.username === u.username
-        ? {
-            ...x,
-            role,
-            permisos: role === "dios" ? defaultPermisosFor("dios") : defaultPermisosFor(role),
-          }
+        ? { ...x, role, permisos: defaultPermisosFor(role) }
         : x
     );
     setAll(arr);
   };
 
   const onPermToggle = (u, key, value) => {
-    // “dios” siempre todo true
     if (u.role === "dios") return;
     const arr = viewUsers.map((x) =>
       x.username === u.username ? { ...x, permisos: { ...x.permisos, [key]: !!value } } : x
@@ -173,57 +169,70 @@ export default function AdminUsuarios({ usuarios, setUsuarios, agregarUsuario, e
       </section>
 
       <section style={{ marginTop: 20, background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 2px 10px #0001" }}>
-        <h3 className="subtitulo">Usuarios existentes</h3>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <h3 className="subtitulo" style={{ margin: 0 }}>Usuarios existentes</h3>
+          {viewUsers.length > 0 && (
+            <button
+              onClick={onDeleteAll}
+              style={{ background: "#7f1d1d", color: "#fff", padding: "6px 14px", borderRadius: 6, border: "none", cursor: "pointer" }}
+            >
+              🗑️ Borrar todos
+            </button>
+          )}
+        </div>
 
-        <table className="tabla">
-          <thead>
-            <tr>
-              <th>Usuario</th>
-              <th>Rol</th>
-              <th>Permisos</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {viewUsers.map((u) => (
-              <tr key={u.username}>
-                <td>{u.username}</td>
-                <td>
-                  <select value={u.role} onChange={(e) => onRoleChange(u, e.target.value)}>
-                    <option value="dios">Dios</option>
-                    <option value="editor">Editor</option>
-                    <option value="invitado">Invitado</option>
-                  </select>
-                </td>
-                <td>
-                  {u.role === "dios" ? (
-                    <i>Tiene todos los permisos</i>
-                  ) : (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                      {PERM_KEYS.map((k) => (
-                        <label key={k} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-                          <input
-                            type="checkbox"
-                            checked={!!u.permisos?.[k]}
-                            onChange={(e) => onPermToggle(u, k, e.target.checked)}
-                          />
-                          {k}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td>
-                  {u.role !== "dios" && (
-                    <button style={{ background: "#ef4444" }} onClick={() => onDelete(u)}>
+        {viewUsers.length === 0 ? (
+          <p style={{ color: "#888", textAlign: "center", padding: 20 }}>No hay usuarios registrados.</p>
+        ) : (
+          <table className="tabla">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Permisos</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {viewUsers.map((u) => (
+                <tr key={u.username}>
+                  <td>{u.username}</td>
+                  <td>
+                    <select value={u.role} onChange={(e) => onRoleChange(u, e.target.value)}>
+                      <option value="dios">Dios</option>
+                      <option value="editor">Editor</option>
+                      <option value="invitado">Invitado</option>
+                    </select>
+                  </td>
+                  <td>
+                    {u.role === "dios" ? (
+                      <i>Tiene todos los permisos</i>
+                    ) : (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                        {PERM_KEYS.map((k) => (
+                          <label key={k} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={!!u.permisos?.[k]}
+                              onChange={(e) => onPermToggle(u, k, e.target.checked)}
+                            />
+                            {k}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  {/* ✅ Botón Eliminar para TODOS los roles, incluido dios */}
+                  <td>
+                    <button style={{ background: "#ef4444", color: "#fff", border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer" }} onClick={() => onDelete(u)}>
                       Eliminar
                     </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
     </div>
   );
