@@ -1,26 +1,21 @@
 // src/services/api.js
 // Configuración centralizada de API para AguaRuta (Render + Netlify)
-// Autor: Equipo FAZO-LOGÍSTICA — Octubre 2025
+
 import axios from "axios";
 
-// ✅ URL base automática (usa .env si existe, o Render directo)
 const BASE_URL =
   process.env.REACT_APP_BACKEND_URL || "https://aguaruta-backend.onrender.com";
 
-// ✅ Instancia centralizada de axios
 export const api = axios.create({
   baseURL: BASE_URL,
   timeout: 30000,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
 });
 
-// ✅ Interceptor global: logs y manejo de errores
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error("❌ API error:", error?.response || error.message);
+    console.error("❌ API error:", error?.response?.data || error.message);
     return Promise.reject(error);
   }
 );
@@ -29,26 +24,43 @@ api.interceptors.response.use(
    MÉTODOS DE API CENTRALIZADOS
 --------------------------------------------------------------------------- */
 export const apiMethods = {
+
   /* ---------------- RUTAS ACTIVAS ---------------- */
   async getRutasActivas() {
-    // ✅ FIX: backend ahora devuelve array directo []
     const { data } = await api.get("/rutas-activas");
     return Array.isArray(data) ? data : (data.data || []);
   },
-  async updateRutaActiva(id, payload) {
-    const { data } = await api.put(`/rutas-activas/${id}`, payload);
+
+  async updateRutaActiva(id, cambios) {
+    const { data } = await api.put(`/rutas-activas/${id}`, cambios);
     return data;
   },
+
   async deleteRutaActiva(id) {
     const { data } = await api.delete(`/rutas-activas/${id}`);
     return data;
   },
 
-  /* ---------------- ENTREGAS (APP MÓVIL) ---------------- */
+  async addRutaActiva(nuevo) {
+    const { data } = await api.post("/rutas-activas", nuevo);
+    return data;
+  },
+
+  /* ---------------- ENTREGAS ---------------- */
   registrarEntrega(formData) {
-    return api.post("/entregas-app", formData, {
+    return api.post("/registrar-entregas", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
+  },
+
+  async getEntregas(params = {}) {
+    const { data } = await api.get("/entregas", { params });
+    return data;
+  },
+
+  async getEntregasTodas(params = {}) {
+    const { data } = await api.get("/entregas-todas", { params });
+    return data;
   },
 
   /* ---------------- CAMIONES ---------------- */
@@ -57,17 +69,18 @@ export const apiMethods = {
     return data;
   },
 
-  /* ---------------- ESTADÍSTICAS / DASHBOARD ---------------- */
-  async getEstadisticasDashboard(fecha) {
-    const { data } = await api.get(`/estadisticas?fecha=${fecha}`);
-    return data;
-  },
-  async getEntregasTiempoReal(fecha) {
-    const { data } = await api.get(`/entregas-tiempo-real?fecha=${fecha}`);
+  /* ---------------- ESTADÍSTICAS ---------------- */
+  async getEstadisticasCamion(params = {}) {
+    const { data } = await api.get("/estadisticas-camion", { params });
     return data;
   },
 
-  /* ---------------- TEST / DIAGNÓSTICO ---------------- */
+  async getNoEntregadas(params = {}) {
+    const { data } = await api.get("/no-entregadas", { params });
+    return data;
+  },
+
+  /* ---------------- HEALTH CHECK ---------------- */
   async healthCheck() {
     try {
       const { data } = await api.get("/health");
