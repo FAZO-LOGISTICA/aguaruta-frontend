@@ -18,16 +18,17 @@ import AdminUsuarios from "./AdminUsuarios";
 import LoginApp from "./LoginApp";
 import Auditoria from "./Auditoria";
 
-// ================= USUARIOS =================
+// ================= USUARIO MAESTRO (auto-login) =================
+const USUARIO_MAESTRO = { username: "che.gustrago", password: "", role: "dios" };
 
+// ================= USUARIOS =================
 const usuariosEjemplo = [
-  { username: "che.gustrago", password: "", role: "dios" },  // sin contraseña = acceso directo
+  USUARIO_MAESTRO,
   { username: "laguna_verde", password: "delegacion", role: "editor" },
   { username: "operaciones", password: "direccion", role: "editor" }
 ];
 
 // ================= MENÚ =================
-
 const menuItems = [
   { path: "/", label: "Inicio", roles: ["dios", "editor", "invitado"] },
   { path: "/mapa", label: "Mapa", roles: ["dios", "editor", "invitado"] },
@@ -46,7 +47,6 @@ const menuItems = [
 ];
 
 // ================= CONTROL EXTERNO (iframe) =================
-
 function ControladorExterno({ children, usuarioActual }) {
   const navigate = useNavigate();
 
@@ -62,9 +62,7 @@ function ControladorExterno({ children, usuarioActual }) {
       const { type, target } = event.data;
       console.log("📩 Comando recibido desde FAZO:", event.data);
 
-      if (type === "GO_TO" && target) {
-        navigate(target);
-      }
+      if (type === "GO_TO" && target) navigate(target);
 
       if (type === "DESCARGAR_GRAFICOS_PDF") {
         const boton = document.querySelector("#btnDescargarPDF");
@@ -80,16 +78,19 @@ function ControladorExterno({ children, usuarioActual }) {
 }
 
 // ================= APP =================
-
 function App() {
   const [usuarioActual, setUsuarioActual] = useState(() => {
-    // Auto-login: restaurar sesión guardada
+    // 1. Intentar restaurar sesión guardada
     try {
       const saved = localStorage.getItem("aura_session");
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
+      if (saved) return JSON.parse(saved);
+    } catch {}
+
+    // 2. Auto-login directo con usuario maestro
+    try {
+      localStorage.setItem("aura_session", JSON.stringify(USUARIO_MAESTRO));
+    } catch {}
+    return USUARIO_MAESTRO;
   });
 
   const [usuarios, setUsuarios] = useState(usuariosEjemplo);
@@ -100,13 +101,10 @@ function App() {
       setUsuarioActual(u);
       return true;
     }
-
-    // Si password está vacío en el usuario, solo verifica username
     const user = usuarios.find(u =>
       u.username === username &&
       (u.password === "" || u.password === password)
     );
-
     if (user) {
       setUsuarioActual(user);
       try { localStorage.setItem("aura_session", JSON.stringify(user)); } catch {}
@@ -123,7 +121,10 @@ function App() {
   return (
     <Router>
       {usuarioActual && (
-        <nav style={{ background: "#153a5e", padding: "0.2rem 2rem", position: "sticky", top: 0, zIndex: 100 }}>
+        <nav style={{
+          background: "#153a5e", padding: "0.2rem 2rem",
+          position: "sticky", top: 0, zIndex: 100
+        }}>
           {menuItems
             .filter(item => item.roles.includes(usuarioActual.role))
             .map(item => (
