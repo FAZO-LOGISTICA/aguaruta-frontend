@@ -1,35 +1,24 @@
-// src/Mapa.js — AguaRuta (versión final octubre 2025)
-// Autor: Equipo FAZO-LOGÍSTICA
+// src/Mapa.js — AguaRuta
+// ✅ v2 — usa apiMethods centralizado (fix mapa vacío)
 
 import React, { useState, useEffect, useMemo } from "react";
-import axios from "axios";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import API_URL from "./config";
 import { getCamionColor, normalizeCamion } from "./config/camionColors";
+import { apiMethods } from "./services/api";
 import "./App.css";
 
-/* ================= Axios ================= */
-const api = axios.create({
-  baseURL: API_URL,
-  timeout: 60000,
-});
-
-async function warmUp() {
-  try { await api.get("/health", { timeout: 8000 }); } catch {}
-}
-
+/* ================= Fetch centralizado ================= */
 async function fetchRutasActivas(intentos = 3) {
-  await warmUp();
   let delay = 1500;
   for (let i = 0; i < intentos; i++) {
     try {
-      const { data } = await api.get("/rutas-activas");
-      return Array.isArray(data.data) ? data.data : [];
+      // apiMethods.getRutasActivas() ya maneja [] y {data:[]}
+      return await apiMethods.getRutasActivas();
     } catch (e) {
       if (i === intentos - 1) throw e;
-      await new Promise(r => setTimeout(r, delay));
+      await new Promise((r) => setTimeout(r, delay));
       delay *= 2;
     }
   }
@@ -50,8 +39,8 @@ function normaliza(r, idx) {
     litros: Number(r.litros ?? r.LITROS ?? r.litros_de_entrega ?? 0),
     telefono: r.telefono ?? r.TELEFONO ?? r.phone ?? "",
     dia,
-    latitud: isNaN(lat) ? null : lat,
-    longitud: isNaN(lon) ? null : lon,
+    latitud: isNaN(lat) || lat === 0 ? null : lat,
+    longitud: isNaN(lon) || lon === 0 ? null : lon,
   };
 }
 
@@ -90,28 +79,39 @@ function LegendControl({ items }) {
 
 /* ================= Componente principal ================= */
 export default function Mapa() {
-  const [puntos, setPuntos] = useState([]);
-  const [error, setError] = useState("");
+  const [puntos, setPuntos]     = useState([]);
+  const [error, setError]       = useState("");
+  const [cargando, setCargando] = useState(true);
   const [selected, setSelected] = useState(new Set());
-  const [query, setQuery] = useState("");
+  const [query, setQuery]       = useState("");
 
   useEffect(() => {
     (async () => {
+      setCargando(true);
       setError("");
       try {
         const arr = await fetchRutasActivas(3);
+        console.log(`[Mapa] Recibidos ${arr?.length ?? 0} registros del backend`);
+
+        if (!Array.isArray(arr) || arr.length === 0) {
+          setError("⚠️ El backend no devolvió puntos. Verifica /rutas-activas.");
+          setCargando(false);
+          return;
+        }
+
         const norm = arr
           .map(normaliza)
           .filter((p) => p.latitud !== null && p.longitud !== null);
-        if (norm.length > 0) {
-          setPuntos(norm);
-          window.__PUNTOS = norm;
-          return;
-        }
+
+        console.log(`[Mapa] ${norm.length} puntos con coordenadas válidas (de ${arr.length} totales)`);
+        setPuntos(norm);
+        window.__PUNTOS = norm;
       } catch (e) {
-        console.warn("DB /rutas-activas error:", e?.message || e);
+        console.error("[Mapa] Error cargando rutas:", e?.message || e);
+        setError("⚠️ No se pudieron cargar los puntos del backend.");
+      } finally {
+        setCargando(false);
       }
-      setError("⚠️ No se pudieron cargar los puntos del backend.");
     })();
   }, []);
 
@@ -142,23 +142,20 @@ export default function Mapa() {
     }
   }, [allCamiones.length]);
 
-  const toggleCamion = (c) => {
+  const toggleCamion = (c) =>
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(c)) next.delete(c);
-      else next.add(c);
+      if (next.has(c)) next.delete(c); else next.add(c);
       return next;
     });
-  };
-  const selectAll = () => setSelected(new Set(allCamiones));
+  const selectAll  = () => setSelected(new Set(allCamiones));
   const selectNone = () => setSelected(new Set());
-  const invert = () => {
+  const invert     = () => {
     const next = new Set();
     allCamiones.forEach((c) => { if (!selected.has(c)) next.add(c); });
     setSelected(next);
   };
 
-  /* 🔍 Filtro combinado (nombre + camión + día) */
   const filteredMarcadores = useMemo(() => {
     const q = query.toLowerCase().trim();
     return marcadores.filter(
@@ -171,23 +168,16 @@ export default function Mapa() {
     );
   }, [marcadores, selected, query]);
 
-  const legendItems = useMemo(() => {
-    const base = selected.size
-      ? allCamiones.filter((c) => selected.has(c))
-      : allCamiones;
-    return base.map((c) => ({ camion: c, color: getCamionColor(c) }));
-  }, [allCamiones, selected]);
+  const legendItems = useMemo(
+    () =>
+      (selected.size ? allCamiones.filter((c) => selected.has(c)) : allCamiones)
+        .map((c) => ({ camion: c, color: getCamionColor(c) })),
+    [allCamiones, selected]
+  );
 
-  /* 🌍 Exportar KML */
   const exportarKML = () => {
-    if (!filteredMarcadores.length) {
-      alert("No hay puntos visibles para exportar.");
-      return;
-    }
-
-    const placemarks = filteredMarcadores
-      .map(
-        (m) => `
+    if (!filteredMarcadores.length) { alert("No hay puntos visibles para exportar."); return; }
+    const placemarks = filteredMarcadores.map((m) => `
       <Placemark>
         <name>${m.nombre || "Sin nombre"}</name>
         <description><![CDATA[
@@ -197,27 +187,17 @@ export default function Mapa() {
           Teléfono: ${m.telefono}
         ]]></description>
         <Point><coordinates>${m.lon},${m.lat},0</coordinates></Point>
-      </Placemark>`
-      )
-      .join("\n");
-
+      </Placemark>`).join("\n");
     const kml = `<?xml version="1.0" encoding="UTF-8"?>
       <kml xmlns="http://www.opengis.net/kml/2.2">
-        <Document>
-          <name>Rutas Activas AguaRuta</name>
-          ${placemarks}
-        </Document>
+        <Document><name>Rutas Activas AguaRuta</name>${placemarks}</Document>
       </kml>`;
-
     const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
-    const url = URL.createObjectURL(blob);
+    const url  = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url;
-    link.download = "rutas_activas.kml";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    link.href = url; link.download = "rutas_activas.kml";
+    document.body.appendChild(link); link.click();
+    document.body.removeChild(link); URL.revokeObjectURL(url);
   };
 
   const center = [-33.07, -71.63];
@@ -239,9 +219,16 @@ export default function Mapa() {
       />
 
       <h2 className="titulo">Mapa de Rutas Activas</h2>
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
 
-      {/* ==== Barra de filtros ==== */}
+      {cargando && <p style={{ color: "#6b7280" }}>⏳ Cargando puntos del mapa...</p>}
+      {error    && <p style={{ color: "crimson" }}>{error}</p>}
+      {!cargando && !error && (
+        <p style={{ color: "#16a34a", fontWeight: 600, marginBottom: 8 }}>
+          ✅ {puntos.length} beneficiarios cargados · {filteredMarcadores.length} visibles
+        </p>
+      )}
+
+      {/* Filtros */}
       <div className="filtros-camion">
         <div className="fila-1">
           <strong>Buscar / Filtrar:</strong>
@@ -261,18 +248,12 @@ export default function Mapa() {
             Mostrando {filteredMarcadores.length} / {marcadores.length} puntos
           </span>
         </div>
-
         <div className="chips">
           {allCamiones.map((c) => {
-            const on = selected.has(c);
+            const on    = selected.has(c);
             const color = getCamionColor(c);
             return (
-              <button
-                key={c}
-                className={`chip ${on ? "on" : ""}`}
-                title={`Camión ${c}`}
-                onClick={() => toggleCamion(c)}
-              >
+              <button key={c} className={`chip ${on ? "on" : ""}`} title={`Camión ${c}`} onClick={() => toggleCamion(c)}>
                 <i style={{ background: color }} /> {c}
               </button>
             );
@@ -280,39 +261,28 @@ export default function Mapa() {
         </div>
       </div>
 
-      {/* ==== Mapa ==== */}
+      {/* Mapa */}
       <MapContainer
         center={center}
         zoom={13}
-        style={{
-          height: "65vh",
-          width: "100%",
-          borderRadius: "10px",
-          boxShadow: "0 0 10px rgba(0,0,0,0.2)",
-        }}
+        style={{ height: "65vh", width: "100%", borderRadius: "10px", boxShadow: "0 0 10px rgba(0,0,0,0.2)" }}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution="&copy; OpenStreetMap contributors"
         />
-
         <LegendControl items={legendItems} />
-
-        {filteredMarcadores.map((m) => {
-          const color = getCamionColor(m.camion);
-          const icon = crearIcono(color, 12);
-          return (
-            <Marker key={m.key} position={[m.lat, m.lon]} icon={icon}>
-              <Popup>
-                <strong>{m.nombre ?? "Sin nombre"}</strong><br />
-                Camión: {m.camion || "-"}<br />
-                Día: {m.dia ?? "-"}<br />
-                Litros: {m.litros ?? 0}<br />
-                Tel: {m.telefono ?? "-"}
-              </Popup>
-            </Marker>
-          );
-        })}
+        {filteredMarcadores.map((m) => (
+          <Marker key={m.key} position={[m.lat, m.lon]} icon={crearIcono(getCamionColor(m.camion), 12)}>
+            <Popup>
+              <strong>{m.nombre ?? "Sin nombre"}</strong><br />
+              Camión: {m.camion || "-"}<br />
+              Día: {m.dia ?? "-"}<br />
+              Litros: {m.litros ?? 0}<br />
+              Tel: {m.telefono ?? "-"}
+            </Popup>
+          </Marker>
+        ))}
       </MapContainer>
     </main>
   );
