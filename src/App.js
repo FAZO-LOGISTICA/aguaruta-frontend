@@ -17,6 +17,7 @@ import Entregas from "./Entregas";
 import AdminUsuarios from "./AdminUsuarios";
 import LoginApp from "./LoginApp";
 import Auditoria from "./Auditoria";
+import EntregaMovil from "./EntregaMovil"; // ← NUEVO
 
 // ================= USUARIO MAESTRO (auto-login) =================
 const USUARIO_MAESTRO = { username: "che.gustrago", password: "", role: "dios" };
@@ -80,13 +81,10 @@ function ControladorExterno({ children, usuarioActual }) {
 // ================= APP =================
 function App() {
   const [usuarioActual, setUsuarioActual] = useState(() => {
-    // 1. Intentar restaurar sesión guardada
     try {
       const saved = localStorage.getItem("aura_session");
       if (saved) return JSON.parse(saved);
     } catch {}
-
-    // 2. Auto-login directo con usuario maestro
     try {
       localStorage.setItem("aura_session", JSON.stringify(USUARIO_MAESTRO));
     } catch {}
@@ -120,61 +118,82 @@ function App() {
 
   return (
     <Router>
-      {usuarioActual && (
-        <nav style={{
-          background: "#153a5e", padding: "0.2rem 2rem",
-          position: "sticky", top: 0, zIndex: 100
-        }}>
-          {menuItems
-            .filter(item => item.roles.includes(usuarioActual.role))
-            .map(item => (
-              <Link key={item.path} to={item.path}
-                style={{ color: "#fff", marginRight: "1rem", textDecoration: "none" }}>
-                {item.label}
-              </Link>
-            ))}
-          <button onClick={handleLogout} style={{ marginLeft: "1rem" }}>
-            Cerrar sesión
-          </button>
-        </nav>
-      )}
-
       <Routes>
-        {!usuarioActual ? (
-          <Route path="*" element={
-            <LoginApp
-              onLogin={handleLogin}
-              onInvitado={() => handleLogin("", "", true)}
-            />
-          } />
-        ) : (
-          <Route
-            path="*"
-            element={
-              <ControladorExterno usuarioActual={usuarioActual}>
-                <Routes>
-                  <Route path="/" element={<Inicio />} />
-                  <Route path="/mapa" element={<Mapa />} />
-                  <Route path="/graficos" element={<Graficos />} />
-                  <Route path="/estadisticas-camion" element={<CamionEstadisticas />} />
-                  <Route path="/comparacion-semanal" element={<ComparacionSemanal />} />
-                  <Route path="/rutas-por-camion" element={<RutasPorCamion />} />
-                  <Route path="/rutas-activas" element={<RutasActivas />} />
-                  <Route path="/registrar-entrega" element={<RegistrarEntrega />} />
-                  <Route path="/entregas" element={<Entregas />} />
-                  <Route path="/registrar-punto" element={<RegistrarNuevoPunto />} />
-                  <Route path="/no-entregadas" element={<NoEntregadas />} />
-                  <Route path="/entregas-app" element={<EntregasApp />} />
-                  <Route path="/auditoria" element={<Auditoria />} />
-                  <Route path="/usuarios" element={
-                    <AdminUsuarios usuarios={usuarios} setUsuarios={setUsuarios} />
+
+        {/* ======================================================
+            RUTA PÚBLICA — App móvil repartidor
+            Acceso directo sin login ni navbar
+            URL: https://aguaruta.netlify.app/movil
+        ====================================================== */}
+        <Route path="/movil" element={<EntregaMovil />} />
+
+        {/* ======================================================
+            RUTAS PROTEGIDAS — Panel admin
+        ====================================================== */}
+        <Route
+          path="*"
+          element={
+            <>
+              {usuarioActual && (
+                <nav style={{
+                  background: "#153a5e", padding: "0.2rem 2rem",
+                  position: "sticky", top: 0, zIndex: 100
+                }}>
+                  {menuItems
+                    .filter(item => item.roles.includes(usuarioActual.role))
+                    .map(item => (
+                      <Link key={item.path} to={item.path}
+                        style={{ color: "#fff", marginRight: "1rem", textDecoration: "none" }}>
+                        {item.label}
+                      </Link>
+                    ))}
+                  <button onClick={handleLogout} style={{ marginLeft: "1rem" }}>
+                    Cerrar sesión
+                  </button>
+                </nav>
+              )}
+
+              <Routes>
+                {!usuarioActual ? (
+                  <Route path="*" element={
+                    <LoginApp
+                      onLogin={handleLogin}
+                      onInvitado={() => handleLogin("", "", true)}
+                    />
                   } />
-                  <Route path="*" element={<Navigate to="/" />} />
-                </Routes>
-              </ControladorExterno>
-            }
-          />
-        )}
+                ) : (
+                  <Route
+                    path="*"
+                    element={
+                      <ControladorExterno usuarioActual={usuarioActual}>
+                        <Routes>
+                          <Route path="/" element={<Inicio />} />
+                          <Route path="/mapa" element={<Mapa />} />
+                          <Route path="/graficos" element={<Graficos />} />
+                          <Route path="/estadisticas-camion" element={<CamionEstadisticas />} />
+                          <Route path="/comparacion-semanal" element={<ComparacionSemanal />} />
+                          <Route path="/rutas-por-camion" element={<RutasPorCamion />} />
+                          <Route path="/rutas-activas" element={<RutasActivas />} />
+                          <Route path="/registrar-entrega" element={<RegistrarEntrega />} />
+                          <Route path="/entregas" element={<Entregas />} />
+                          <Route path="/registrar-punto" element={<RegistrarNuevoPunto />} />
+                          <Route path="/no-entregadas" element={<NoEntregadas />} />
+                          <Route path="/entregas-app" element={<EntregasApp />} />
+                          <Route path="/auditoria" element={<Auditoria />} />
+                          <Route path="/usuarios" element={
+                            <AdminUsuarios usuarios={usuarios} setUsuarios={setUsuarios} />
+                          } />
+                          <Route path="*" element={<Navigate to="/" />} />
+                        </Routes>
+                      </ControladorExterno>
+                    }
+                  />
+                )}
+              </Routes>
+            </>
+          }
+        />
+
       </Routes>
     </Router>
   );
