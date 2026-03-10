@@ -8,20 +8,23 @@ import {
 } from "react-icons/fa";
 import API_URL from "./config";
 
-// Códigos oficiales:
-// 1 = Entregado
-// 2 = No entregado - No hay moradores (con foto)
-// 3 = No entregado - Dirección no existe (sin foto)
-// 4 = No entregado - Camino malo (con foto)
+// ── 9 estados reales ──
 const ESTADOS = {
-  1: { texto: "Entregado", colorText: "text-green-600", Icon: FaCheckCircle },
-  2: { texto: "No entregado (no hay moradores, con foto)", colorText: "text-amber-600", Icon: FaExclamationTriangle },
-  3: { texto: "No entregado (dirección no existe, sin foto)", colorText: "text-gray-600", Icon: FaExclamationTriangle },
-  4: { texto: "No entregado (camino malo, con foto)", colorText: "text-red-600", Icon: FaTimesCircle },
+  0: { texto: "No entrega",                    colorText: "text-gray-600",   Icon: FaTimesCircle },
+  1: { texto: "Entrega",                        colorText: "text-green-600",  Icon: FaCheckCircle },
+  2: { texto: "No encontrado",                  colorText: "text-amber-600",  Icon: FaExclamationTriangle },
+  3: { texto: "Camino malo",                    colorText: "text-purple-600", Icon: FaExclamationTriangle },
+  4: { texto: "Falta al protocolo",             colorText: "text-yellow-700", Icon: FaExclamationTriangle },
+  5: { texto: "Menor cantidad entregada",       colorText: "text-blue-600",   Icon: FaExclamationTriangle },
+  6: { texto: "Mayor cantidad entregada",       colorText: "text-teal-600",   Icon: FaExclamationTriangle },
+  7: { texto: "Apoyo municipal",                colorText: "text-indigo-600", Icon: FaCheckCircle },
+  8: { texto: "No quiere recibir x motivo",     colorText: "text-red-600",    Icon: FaTimesCircle },
 };
 
 function EstadoBadge({ estado }) {
-  const cfg = ESTADOS[Number(estado)] || { texto: `Desconocido (${estado})`, colorText: "text-slate-600", Icon: FaExclamationTriangle };
+  const cfg = ESTADOS[Number(estado)] || {
+    texto: `Desconocido (${estado})`, colorText: "text-slate-600", Icon: FaExclamationTriangle
+  };
   const Ico = cfg.Icon;
   return (
     <span className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-semibold ${cfg.colorText}`}>
@@ -31,10 +34,7 @@ function EstadoBadge({ estado }) {
 }
 
 const normalizar = (s) =>
-  String(s || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+  String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 export default function Entregas() {
   const [fondo, setFondo] = useState("");
@@ -47,7 +47,7 @@ export default function Entregas() {
   const [hasta, setHasta] = useState(hoy);
   const [camion, setCamion] = useState("");
   const [nombre, setNombre] = useState("");
-  const [estado, setEstado] = useState(""); // "": todos | "1".."4"
+  const [estado, setEstado] = useState("");
 
   useEffect(() => {
     const n = Math.floor(Math.random() * 9) + 1;
@@ -56,11 +56,10 @@ export default function Entregas() {
 
   const buildFotoURL = (e) => {
     const path = e.foto_url || e.foto;
-    if (!path) return null;
-    if (typeof path !== "string") return null;
+    if (!path || typeof path !== "string") return null;
     if (path.startsWith("http")) return path;
     if (path.startsWith("/uploads/")) return `${API_URL}${path}`;
-    // backend guarda "entregas/<uuid>.jpg"
+    if (path.startsWith("/fotos/")) return `${API_URL}${path}`;
     return `${API_URL}/uploads/${path}`;
   };
 
@@ -72,7 +71,7 @@ export default function Entregas() {
         desde,
         hasta,
         camion: camion || undefined,
-        estado: estado ? Number(estado) : undefined, // backend espera 1..4
+        estado: estado !== "" ? Number(estado) : undefined,
       };
       const res = await axios.get(`${API_URL}/entregas`, { params });
       setData(Array.isArray(res.data) ? res.data : []);
@@ -84,21 +83,19 @@ export default function Entregas() {
     }
   };
 
-  useEffect(() => { fetchEntregas(); }, []); // carga inicial
+  useEffect(() => { fetchEntregas(); }, []);
 
-  // Filtro por nombre en frontend (case/acentos-insensible)
   const dataFiltrada = useMemo(() => {
     const q = normalizar(nombre);
-    return (data || []).filter((r) => {
-      const okNombre = !q || normalizar(r.nombre).includes(q);
-      return okNombre;
-    });
+    return (data || []).filter((r) => !q || normalizar(r.nombre).includes(q));
   }, [data, nombre]);
 
   const totales = useMemo(() => {
     let entregas = 0, litros = 0;
     for (const r of dataFiltrada) {
-      if (Number(r.estado) === 1) {
+      const est = Number(r.estado);
+      // Cuentan como entrega: estado 1, 5, 6, 7
+      if ([1, 5, 6, 7].includes(est)) {
         entregas += 1;
         litros += Number(r.litros || 0);
       }
@@ -113,6 +110,7 @@ export default function Entregas() {
       Nombre: e.nombre,
       Litros: e.litros,
       Estado: ESTADOS[Number(e.estado)]?.texto || e.estado,
+      Motivo: e.motivo || "",
       Telefono: e.telefono || "",
       Latitud: e.latitud ?? "",
       Longitud: e.longitud ?? "",
@@ -145,7 +143,7 @@ export default function Entregas() {
           <header className="card-header mb-4">
             <h1 className="text-3xl font-bold">Historial de Entregas</h1>
             <p className="text-sm text-slate-700">
-              Consulta unificada (web + app). Filtra por fecha, camión, nombre y estado. Exporta a Excel.
+              Datos reales desde app móvil y registro manual. Filtra por fecha, camión, nombre y estado.
             </p>
           </header>
 
@@ -163,7 +161,8 @@ export default function Entregas() {
               <label className="block text-xs mb-1">Camión</label>
               <select value={camion} onChange={e => setCamion(e.target.value)} className="w-full border rounded px-2 py-2">
                 <option value="">Todos</option>
-                <option>A1</option><option>A2</option><option>A3</option><option>A4</option><option>A5</option>
+                <option>A1</option><option>A2</option><option>A3</option>
+                <option>A4</option><option>A5</option>
                 <option>M1</option><option>M2</option><option>M3</option>
               </select>
             </div>
@@ -175,10 +174,15 @@ export default function Entregas() {
               <label className="block text-xs mb-1">Estado</label>
               <select value={estado} onChange={e => setEstado(e.target.value)} className="w-full border rounded px-2 py-2">
                 <option value="">Todos</option>
-                <option value="1">1 — Entregado</option>
-                <option value="2">2 — No hay moradores (con foto)</option>
-                <option value="3">3 — Dirección no existe (sin foto)</option>
-                <option value="4">4 — Camino malo (con foto)</option>
+                <option value="0">0 — No entrega</option>
+                <option value="1">1 — Entrega</option>
+                <option value="2">2 — No encontrado</option>
+                <option value="3">3 — Camino malo</option>
+                <option value="4">4 — Falta al protocolo</option>
+                <option value="5">5 — Menor cantidad entregada</option>
+                <option value="6">6 — Mayor cantidad entregada</option>
+                <option value="7">7 — Apoyo municipal</option>
+                <option value="8">8 — No quiere recibir x motivo</option>
               </select>
             </div>
           </div>
@@ -195,12 +199,20 @@ export default function Entregas() {
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <div className="p-4 rounded-2xl border shadow bg-white/70 backdrop-blur">
-              <div className="text-xs text-slate-600">Entregas (estado=1)</div>
-              <div className="text-2xl font-bold">{totales.entregas}</div>
+              <div className="text-xs text-slate-600">Total registros</div>
+              <div className="text-2xl font-bold">{dataFiltrada.length}</div>
+            </div>
+            <div className="p-4 rounded-2xl border shadow bg-white/70 backdrop-blur">
+              <div className="text-xs text-slate-600">Entregas realizadas</div>
+              <div className="text-2xl font-bold text-green-600">{totales.entregas}</div>
             </div>
             <div className="p-4 rounded-2xl border shadow bg-white/70 backdrop-blur">
               <div className="text-xs text-slate-600">Litros entregados</div>
               <div className="text-2xl font-bold">{totales.litros.toLocaleString("es-CL")}</div>
+            </div>
+            <div className="p-4 rounded-2xl border shadow bg-white/70 backdrop-blur">
+              <div className="text-xs text-slate-600">No realizadas</div>
+              <div className="text-2xl font-bold text-red-500">{dataFiltrada.length - totales.entregas}</div>
             </div>
           </div>
 
@@ -220,60 +232,60 @@ export default function Entregas() {
                   <th className="p-3 text-left">Teléfono</th>
                   <th className="p-3 text-left">GPS</th>
                   <th className="p-3 text-left">Foto</th>
-                  <th className="p-3 text-left">Usuario</th>
+                  <th className="p-3 text-left">Fuente</th>
                 </tr>
               </thead>
               <tbody>
                 {dataFiltrada.map((e, idx) => {
-                  const estadoNum = Number(e.estado);
                   const fotoURL = buildFotoURL(e);
                   return (
                     <tr key={e.id ?? idx} className="border-b border-gray-200 hover:bg-gray-50">
                       <td className="p-3">{fechaStr(e)}</td>
-                      <td className="p-3 flex items-center gap-2 text-gray-800">
-                        <FaTruck className="text-blue-500" />
-                        {e.camion}
+                      <td className="p-3">
+                        <span className="inline-flex items-center gap-2 text-gray-800">
+                          <FaTruck className="text-blue-500" /> {e.camion}
+                        </span>
                       </td>
                       <td className="p-3">{e.nombre}</td>
-                      <td className="p-3 flex items-center gap-1">
-                        <FaTint className="text-cyan-500" />
-                        {formateaLitros(e.litros)}
+                      <td className="p-3">
+                        <span className="inline-flex items-center gap-1">
+                          <FaTint className="text-cyan-500" /> {formateaLitros(e.litros)}
+                        </span>
                       </td>
                       <td className="p-3 font-medium">
-                        <EstadoBadge estado={estadoNum} />
+                        <EstadoBadge estado={Number(e.estado)} />
                       </td>
-                      <td className="p-3">{e.motivo || ""}</td>
+                      <td className="p-3 text-xs text-gray-600">{e.motivo || "—"}</td>
                       <td className="p-3">
                         {e.telefono ? (
                           <a href={`tel:${e.telefono}`} className="inline-flex items-center gap-2 text-blue-700 underline">
                             <FaPhone /> {e.telefono}
                           </a>
-                        ) : ""}
+                        ) : "—"}
                       </td>
                       <td className="p-3">
                         {e.latitud && e.longitud ? (
-                          <a
-                            href={`https://maps.google.com/?q=${e.latitud},${e.longitud}`}
-                            target="_blank" rel="noreferrer"
-                            className="inline-flex items-center gap-2 text-blue-700 underline"
-                          >
-                            <FaMapMarkerAlt />
-                            {Number(e.latitud).toFixed(5)}, {Number(e.longitud).toFixed(5)}
+                          <a href={`https://maps.google.com/?q=${e.latitud},${e.longitud}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-blue-700 underline">
+                            <FaMapMarkerAlt /> Ver
                           </a>
-                        ) : ""}
+                        ) : "—"}
                       </td>
                       <td className="p-3">
                         {fotoURL ? (
-                          <a
-                            href={fotoURL}
-                            target="_blank" rel="noreferrer"
-                            className="inline-flex items-center gap-2 text-blue-700 underline"
-                          >
+                          <a href={fotoURL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-blue-700 underline">
                             <FaImage /> Ver foto
                           </a>
-                        ) : ""}
+                        ) : "—"}
                       </td>
-                      <td className="p-3">{e.usuario || e.registrado_por || ""}</td>
+                      <td className="p-3 text-xs">
+                        <span style={{
+                          padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+                          background: e.fuente === "movil" ? "#dbeafe" : "#f3f4f6",
+                          color: e.fuente === "movil" ? "#1d4ed8" : "#374151"
+                        }}>
+                          {e.fuente === "movil" ? "📱 App" : "🖥️ Web"}
+                        </span>
+                      </td>
                     </tr>
                   );
                 })}
