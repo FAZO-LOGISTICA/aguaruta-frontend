@@ -7,10 +7,22 @@ import "jspdf-autotable";
 import API_URL from "./config";
 import "./App.css";
 
+// ── Estados no-entrega (todo menos 1, 5, 6, 7) ──
 const ESTADOS = {
-  0: "No entrega (con foto)",
-  2: "No entrega (foto, sin ubicar)",
-  3: "No se ubica (sin foto)",
+  0: { texto: "No entrega",                emoji: "🚫" },
+  2: { texto: "No encontrado",             emoji: "🚪" },
+  3: { texto: "Camino malo",               emoji: "🚧" },
+  4: { texto: "Falta al protocolo",        emoji: "⚠️" },
+  8: { texto: "No quiere recibir x motivo",emoji: "🙅" },
+};
+
+// Todos los estados para el select de filtro
+const TODOS_ESTADOS = {
+  0: "🚫 No entrega",
+  2: "🚪 No encontrado",
+  3: "🚧 Camino malo",
+  4: "⚠️ Falta al protocolo",
+  8: "🙅 No quiere recibir x motivo",
 };
 
 export default function NoEntregadas() {
@@ -21,7 +33,7 @@ export default function NoEntregadas() {
   const [desde, setDesde] = useState(hace7.toISOString().slice(0, 10));
   const [hasta, setHasta] = useState(hoy.toISOString().slice(0, 10));
   const [camion, setCamion] = useState("");
-  const [estado, setEstado] = useState(""); // vacío = 0,2,3
+  const [estado, setEstado] = useState("");
   const [rows, setRows] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
@@ -32,10 +44,9 @@ export default function NoEntregadas() {
       setError("");
       const params = { desde, hasta };
       if (camion) params.camion = camion;
-      if (estado !== "") params.estado = Number(estado); // 0/2/3
+      if (estado !== "") params.estado = Number(estado);
 
-      // 🔄 ahora consumimos el consolidado
-      const res = await axios.get(`${API_URL}/entregas-todas`, { params });
+      const res = await axios.get(`${API_URL}/no-entregadas`, { params });
       setRows(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.error(e);
@@ -46,20 +57,29 @@ export default function NoEntregadas() {
   };
 
   useEffect(() => {
-    fetchData(); // carga inicial
+    fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Si no se selecciona estado, filtramos 0,2,3 en el front
+  // Filtro local por estado si no se mandó al backend
   const filas = useMemo(() => {
-    const base =
-      estado === ""
-        ? rows.filter((r) => [0, 2, 3].includes(Number(r.estado)))
-        : rows;
-    return base.sort((a, b) =>
-      String(b.fecha).localeCompare(String(a.fecha))
-    );
+    const base = estado === ""
+      ? rows.filter((r) => ![1, 5, 6, 7].includes(Number(r.estado)))
+      : rows;
+    return base.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
   }, [rows, estado]);
+
+  // KPIs por estado
+  const kpis = useMemo(() => {
+    const acc = {};
+    for (const r of filas) {
+      const est = Number(r.estado);
+      const label = ESTADOS[est]?.texto || `Estado ${est}`;
+      if (!acc[est]) acc[est] = { label, emoji: ESTADOS[est]?.emoji || "", count: 0 };
+      acc[est].count++;
+    }
+    return Object.values(acc).sort((a, b) => b.count - a.count);
+  }, [filas]);
 
   const camiones = useMemo(
     () => [...new Set(rows.map((r) => r.camion).filter(Boolean))].sort(),
@@ -71,14 +91,12 @@ export default function NoEntregadas() {
       Fecha: String(r.fecha).slice(0, 10),
       Camion: r.camion,
       Nombre: r.nombre,
-      Litros: r.litros ?? "",
-      Estado: ESTADOS[r.estado] ?? r.estado,
+      Estado: `${ESTADOS[r.estado]?.emoji || ""} ${ESTADOS[r.estado]?.texto || r.estado}`,
       Motivo: r.motivo ?? "",
       Telefono: r.telefono ?? "",
       Latitud: r.latitud ?? "",
       Longitud: r.longitud ?? "",
       Foto: r.foto_url ? "Sí" : "No",
-      Usuario: r.usuario ?? "",
     }));
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(datos);
@@ -95,7 +113,7 @@ export default function NoEntregadas() {
         String(r.fecha).slice(0, 10),
         r.camion,
         r.nombre,
-        ESTADOS[r.estado] ?? r.estado,
+        `${ESTADOS[r.estado]?.emoji || ""} ${ESTADOS[r.estado]?.texto || r.estado}`,
         r.motivo ?? "",
         r.telefono ?? "",
       ]),
@@ -105,65 +123,52 @@ export default function NoEntregadas() {
   };
 
   const fotoHref = (url) =>
-    !url ? null : url.startsWith("http") ? url : `${API_URL}/${url}`;
+    !url ? null : url.startsWith("http") ? url : `${API_URL}${url}`;
 
   return (
     <div className="main-container fade-in">
-      <h2 className="titulo">Entregas No Realizadas</h2>
+      <h2 className="titulo">❌ Entregas No Realizadas</h2>
+
+      {/* KPIs por estado */}
+      {kpis.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+          <div style={sKpi("#f1f5f9", "#1e293b")}>
+            <div style={{ fontSize: 11, color: "#64748b" }}>Total no realizadas</div>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>{filas.length}</div>
+          </div>
+          {kpis.map((k, i) => (
+            <div key={i} style={sKpi("#fff", "#1e293b")}>
+              <div style={{ fontSize: 11, color: "#64748b" }}>{k.emoji} {k.label}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: "#dc2626" }}>{k.count}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Filtros */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(6, 1fr)",
-          gap: 12,
-          marginBottom: 12,
-        }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, marginBottom: 12 }}>
         <div>
           <label className="block text-xs mb-1">Desde</label>
-          <input
-            type="date"
-            value={desde}
-            onChange={(e) => setDesde(e.target.value)}
-            className="w-full"
-          />
+          <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="w-full" />
         </div>
         <div>
           <label className="block text-xs mb-1">Hasta</label>
-          <input
-            type="date"
-            value={hasta}
-            onChange={(e) => setHasta(e.target.value)}
-            className="w-full"
-          />
+          <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="w-full" />
         </div>
         <div>
           <label className="block text-xs mb-1">Camión</label>
-          <select
-            value={camion}
-            onChange={(e) => setCamion(e.target.value)}
-            className="w-full"
-          >
+          <select value={camion} onChange={(e) => setCamion(e.target.value)} className="w-full">
             <option value="">Todos</option>
-            {camiones.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
+            {camiones.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs mb-1">Estado</label>
-          <select
-            value={estado}
-            onChange={(e) => setEstado(e.target.value)}
-            className="w-full"
-          >
-            <option value="">0, 2 y 3</option>
-            <option value="0">No entrega (con foto)</option>
-            <option value="2">No entrega (foto, sin ubicar)</option>
-            <option value="3">No se ubica (sin foto)</option>
+          <select value={estado} onChange={(e) => setEstado(e.target.value)} className="w-full">
+            <option value="">Todos (no-entrega)</option>
+            {Object.entries(TODOS_ESTADOS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
           </select>
         </div>
         <div style={{ display: "flex", alignItems: "end", gap: 8 }}>
@@ -172,12 +177,8 @@ export default function NoEntregadas() {
           </button>
         </div>
         <div style={{ display: "flex", alignItems: "end", gap: 8 }}>
-          <button onClick={exportarExcel} disabled={!filas.length}>
-            Exportar Excel
-          </button>
-          <button onClick={exportarPDF} disabled={!filas.length}>
-            Exportar PDF
-          </button>
+          <button onClick={exportarExcel} disabled={!filas.length}>Excel</button>
+          <button onClick={exportarPDF} disabled={!filas.length}>PDF</button>
         </div>
       </div>
 
@@ -191,59 +192,45 @@ export default function NoEntregadas() {
               <th>Fecha</th>
               <th>Camión</th>
               <th>Nombre</th>
-              <th>Litros</th>
               <th>Estado</th>
               <th>Motivo</th>
               <th>Teléfono</th>
               <th>GPS</th>
               <th>Foto</th>
-              <th>Usuario</th>
             </tr>
           </thead>
           <tbody>
             {filas.map((r, i) => {
               const href = fotoHref(r.foto_url);
+              const est = ESTADOS[Number(r.estado)];
               return (
                 <tr key={r.id ?? `${r.camion}-${r.nombre}-${i}`}>
                   <td>{String(r.fecha).slice(0, 10)}</td>
                   <td>{r.camion}</td>
                   <td>{r.nombre}</td>
-                  <td>{Number(r.litros || 0).toLocaleString("es-CL")}</td>
-                  <td>{ESTADOS[r.estado] ?? r.estado}</td>
+                  <td style={{ fontWeight: 600 }}>
+                    {est ? `${est.emoji} ${est.texto}` : `Estado ${r.estado}`}
+                  </td>
                   <td>{r.motivo ?? "—"}</td>
                   <td>{r.telefono ?? "—"}</td>
                   <td>
                     {r.latitud && r.longitud ? (
-                      <a
-                        href={`https://maps.google.com/?q=${r.latitud},${r.longitud}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Ver
+                      <a href={`https://maps.google.com/?q=${r.latitud},${r.longitud}`} target="_blank" rel="noreferrer">
+                        📍 Ver
                       </a>
-                    ) : (
-                      "—"
-                    )}
+                    ) : "—"}
                   </td>
                   <td>
                     {href ? (
-                      <a href={href} target="_blank" rel="noreferrer">
-                        Ver
-                      </a>
-                    ) : (
-                      "—"
-                    )}
+                      <a href={href} target="_blank" rel="noreferrer">📷 Ver</a>
+                    ) : "—"}
                   </td>
-                  <td>{r.usuario ?? "—"}</td>
                 </tr>
               );
             })}
             {!filas.length && !cargando && (
               <tr>
-                <td
-                  colSpan="10"
-                  style={{ padding: 16, color: "#64748b", textAlign: "center" }}
-                >
+                <td colSpan="8" style={{ padding: 16, color: "#64748b", textAlign: "center" }}>
                   Sin resultados
                 </td>
               </tr>
@@ -253,4 +240,11 @@ export default function NoEntregadas() {
       </div>
     </div>
   );
+}
+
+function sKpi(bg, color) {
+  return {
+    background: bg, borderRadius: 12, padding: "12px 16px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)", minWidth: 120, color
+  };
 }
