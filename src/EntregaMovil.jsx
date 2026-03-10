@@ -155,12 +155,11 @@ export default function EntregaMovil() {
     return () => window.removeEventListener("online", sincronizar);
   }, []);
 
-  // Mostrar lista completa al seleccionar día; buscador y camión filtran dentro
+  // Lista completa del día — se dispara cada vez que cambian rutas, día, camión o búsqueda
   useEffect(() => {
     if (step === "form") return;
-    // Sin día seleccionado → lista vacía con mensaje
-    if (!diaFiltro) { setResultados([]); return; }
-    let base = rutas.filter(r => (r.dia || "").toUpperCase() === diaFiltro);
+    if (!diaFiltro || rutas.length === 0) { setResultados([]); return; }
+    let base = rutas.filter(r => (r.dia || "").toUpperCase() === diaFiltro.toUpperCase());
     if (camionFiltro) {
       base = base.filter(r => (r.camion || "").toUpperCase() === camionFiltro.toUpperCase());
     }
@@ -354,7 +353,7 @@ export default function EntregaMovil() {
                     ))}
                   </div>
                 )}
-                {cargandoRutas && (
+                {cargandoRutas && resultados.length === 0 && (
                   <div style={{ textAlign: "center", padding: "20px 0", color: "#64748b", fontSize: 13 }}>
                     ⏳ Cargando clientes...
                   </div>
@@ -364,7 +363,7 @@ export default function EntregaMovil() {
                     Sin clientes para los filtros seleccionados
                   </div>
                 )}
-                {!cargandoRutas && !diaFiltro && (
+                {!diaFiltro && rutas.length > 0 && (
                   <div style={{ textAlign: "center", padding: "20px 0", color: "#94a3b8", fontSize: 13 }}>
                     Selecciona un día para ver la lista
                   </div>
