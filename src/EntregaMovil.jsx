@@ -87,14 +87,30 @@ export default function EntregaMovil() {
   const [rutas, setRutas] = useState([]);
   const [colaOffline, setColaOffline] = useState([]);
   const [sincronizando, setSincronizando] = useState(false);
+  const [cargandoRutas, setCargandoRutas] = useState(true);
   const fileRef = useRef();
-
-  // Cargar rutas
   useEffect(() => {
-    fetch(`${API_URL}/rutas-activas`)
-      .then(r => r.json())
-      .then(data => setRutas(Array.isArray(data) ? data : []))
-      .catch(() => {});
+    let intentos = 0;
+    const cargar = () => {
+      fetch(`${API_URL}/rutas-activas`)
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data) && data.length > 0) {
+            setRutas(data);
+            setCargandoRutas(false);
+          } else if (intentos < 4) {
+            intentos++;
+            setTimeout(cargar, 3000);
+          } else {
+            setCargandoRutas(false);
+          }
+        })
+        .catch(() => {
+          if (intentos < 4) { intentos++; setTimeout(cargar, 3000); }
+          else setCargandoRutas(false);
+        });
+    };
+    cargar();
   }, []);
 
   // GPS
@@ -139,17 +155,21 @@ export default function EntregaMovil() {
     return () => window.removeEventListener("online", sincronizar);
   }, []);
 
-  // Buscar cliente
+  // Mostrar lista completa al seleccionar día; buscador y camión filtran dentro
   useEffect(() => {
-    if (busqueda.length < 2) { setResultados([]); return; }
-    const q = busqueda.toLowerCase();
-    const filtrados = rutas.filter(r =>
-      (r.nombre || "").toLowerCase().includes(q) &&
-      (!diaFiltro || (r.dia || "").toUpperCase() === diaFiltro) &&
-      (!camionFiltro || (r.camion || "").toUpperCase() === camionFiltro.toUpperCase())
-    ).slice(0, 8);
-    setResultados(filtrados);
-  }, [busqueda, rutas, diaFiltro, camionFiltro]);
+    if (step === "form") return;
+    // Sin día seleccionado → lista vacía con mensaje
+    if (!diaFiltro) { setResultados([]); return; }
+    let base = rutas.filter(r => (r.dia || "").toUpperCase() === diaFiltro);
+    if (camionFiltro) {
+      base = base.filter(r => (r.camion || "").toUpperCase() === camionFiltro.toUpperCase());
+    }
+    if (busqueda.length >= 2) {
+      const q = busqueda.toLowerCase();
+      base = base.filter(r => (r.nombre || "").toLowerCase().includes(q));
+    }
+    setResultados(base);
+  }, [busqueda, rutas, diaFiltro, camionFiltro, step]);
 
   const seleccionarCliente = (cliente) => {
     setClienteSeleccionado(cliente);
@@ -304,16 +324,23 @@ export default function EntregaMovil() {
 
             {step !== "success" && (
               <div style={s.card}>
-                <div style={s.cardTitle}>🔍 Buscar cliente</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={s.cardTitle}>🔍 Clientes del día</div>
+                  {resultados.length > 0 && (
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+                      {resultados.length} cliente{resultados.length !== 1 ? "s" : ""}
+                    </div>
+                  )}
+                </div>
                 <input
                   style={s.input}
-                  placeholder="Nombre del cliente..."
+                  placeholder="Filtrar por nombre..."
                   value={busqueda}
                   onChange={e => { setBusqueda(e.target.value); if (step === "form") setStep("buscar"); }}
                   autoComplete="off"
                 />
                 {resultados.length > 0 && (
-                  <div style={s.dropdown}>
+                  <div style={{ ...s.dropdown, maxHeight: 340, overflowY: "auto", marginTop: 8 }}>
                     {resultados.map((r, i) => (
                       <button key={i} style={s.dropItem} onClick={() => seleccionarCliente(r)}>
                         <div style={s.dropName}>{r.nombre}</div>
@@ -325,6 +352,21 @@ export default function EntregaMovil() {
                         </div>
                       </button>
                     ))}
+                  </div>
+                )}
+                {cargandoRutas && (
+                  <div style={{ textAlign: "center", padding: "20px 0", color: "#64748b", fontSize: 13 }}>
+                    ⏳ Cargando clientes...
+                  </div>
+                )}
+                {!cargandoRutas && resultados.length === 0 && diaFiltro && (
+                  <div style={{ textAlign: "center", padding: "20px 0", color: "#94a3b8", fontSize: 13 }}>
+                    Sin clientes para los filtros seleccionados
+                  </div>
+                )}
+                {!cargandoRutas && !diaFiltro && (
+                  <div style={{ textAlign: "center", padding: "20px 0", color: "#94a3b8", fontSize: 13 }}>
+                    Selecciona un día para ver la lista
                   </div>
                 )}
               </div>
