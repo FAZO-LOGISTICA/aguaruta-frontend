@@ -17,7 +17,9 @@ import Entregas from "./Entregas";
 import AdminUsuarios from "./AdminUsuarios";
 import LoginApp from "./LoginApp";
 import Auditoria from "./Auditoria";
-import EntregaMovil from "./EntregaMovil"; // ← NUEVO
+import EntregaMovil from "./EntregaMovil";
+import Pagos from "./Pagos";
+import CierreMes from "./CierreMes";
 
 // ================= USUARIO MAESTRO (auto-login) =================
 const USUARIO_MAESTRO = { username: "che.gustrago", password: "", role: "dios" };
@@ -31,20 +33,22 @@ const usuariosEjemplo = [
 
 // ================= MENÚ =================
 const menuItems = [
-  { path: "/", label: "Inicio", roles: ["dios", "editor", "invitado"] },
-  { path: "/mapa", label: "Mapa", roles: ["dios", "editor", "invitado"] },
-  { path: "/graficos", label: "Gráficos", roles: ["dios", "editor", "invitado"] },
-  { path: "/estadisticas-camion", label: "Estadísticas Camión", roles: ["dios", "editor", "invitado"] },
-  { path: "/comparacion-semanal", label: "Comparación Semanal", roles: ["dios", "editor", "invitado"] },
-  { path: "/rutas-por-camion", label: "Rutas por Camión", roles: ["dios", "editor", "invitado"] },
-  { path: "/rutas-activas", label: "Ruta Activa", roles: ["dios", "editor"] },
-  { path: "/registrar-entrega", label: "Registrar Entrega", roles: ["dios", "editor"] },
-  { path: "/entregas", label: "Entregas", roles: ["dios", "editor"] },
-  { path: "/registrar-punto", label: "Registrar Punto", roles: ["dios", "editor"] },
-  { path: "/no-entregadas", label: "No Entregadas", roles: ["dios", "editor"] },
-  { path: "/entregas-app", label: "Entregas App", roles: ["dios", "editor"] },
-  { path: "/auditoria", label: "Auditoría", roles: ["dios"] },
-  { path: "/usuarios", label: "Usuarios", roles: ["dios"] }
+  { path: "/",                    label: "Inicio",               roles: ["dios", "editor", "invitado"] },
+  { path: "/mapa",                label: "Mapa",                 roles: ["dios", "editor", "invitado"] },
+  { path: "/graficos",            label: "Gráficos",             roles: ["dios", "editor", "invitado"] },
+  { path: "/estadisticas-camion", label: "Estadísticas Camión",  roles: ["dios", "editor", "invitado"] },
+  { path: "/comparacion-semanal", label: "Comparación Semanal",  roles: ["dios", "editor", "invitado"] },
+  { path: "/rutas-por-camion",    label: "Rutas por Camión",     roles: ["dios", "editor", "invitado"] },
+  { path: "/rutas-activas",       label: "Ruta Activa",          roles: ["dios", "editor"] },
+  { path: "/registrar-entrega",   label: "Registrar Entrega",    roles: ["dios", "editor"] },
+  { path: "/entregas",            label: "Entregas",             roles: ["dios", "editor"] },
+  { path: "/registrar-punto",     label: "Registrar Punto",      roles: ["dios", "editor"] },
+  { path: "/no-entregadas",       label: "No Entregadas",        roles: ["dios", "editor"] },
+  { path: "/entregas-app",        label: "Entregas App",         roles: ["dios", "editor"] },
+  { path: "/pagos",               label: "💰 Pagos",             roles: ["dios", "editor"] },
+  { path: "/cierre-mes",          label: "📅 Cierre Mes",        roles: ["dios"] },
+  { path: "/auditoria",           label: "Auditoría",            roles: ["dios"] },
+  { path: "/usuarios",            label: "Usuarios",             roles: ["dios"] },
 ];
 
 // ================= CONTROL EXTERNO (iframe) =================
@@ -167,20 +171,22 @@ function App() {
                     element={
                       <ControladorExterno usuarioActual={usuarioActual}>
                         <Routes>
-                          <Route path="/" element={<Inicio />} />
-                          <Route path="/mapa" element={<Mapa />} />
-                          <Route path="/graficos" element={<Graficos />} />
+                          <Route path="/"                    element={<Inicio />} />
+                          <Route path="/mapa"                element={<Mapa />} />
+                          <Route path="/graficos"            element={<Graficos />} />
                           <Route path="/estadisticas-camion" element={<CamionEstadisticas />} />
                           <Route path="/comparacion-semanal" element={<ComparacionSemanal />} />
-                          <Route path="/rutas-por-camion" element={<RutasPorCamion />} />
-                          <Route path="/rutas-activas" element={<RutasActivas />} />
-                          <Route path="/registrar-entrega" element={<RegistrarEntrega />} />
-                          <Route path="/entregas" element={<Entregas />} />
-                          <Route path="/registrar-punto" element={<RegistrarNuevoPunto />} />
-                          <Route path="/no-entregadas" element={<NoEntregadas />} />
-                          <Route path="/entregas-app" element={<EntregasApp />} />
-                          <Route path="/auditoria" element={<Auditoria />} />
-                          <Route path="/usuarios" element={
+                          <Route path="/rutas-por-camion"    element={<RutasPorCamion />} />
+                          <Route path="/rutas-activas"       element={<RutasActivas />} />
+                          <Route path="/registrar-entrega"   element={<RegistrarEntrega />} />
+                          <Route path="/entregas"            element={<Entregas />} />
+                          <Route path="/registrar-punto"     element={<RegistrarNuevoPunto />} />
+                          <Route path="/no-entregadas"       element={<NoEntregadas />} />
+                          <Route path="/entregas-app"        element={<EntregasApp />} />
+                          <Route path="/pagos"               element={<Pagos />} />
+                          <Route path="/cierre-mes"          element={<CierreMes />} />
+                          <Route path="/auditoria"           element={<Auditoria />} />
+                          <Route path="/usuarios"            element={
                             <AdminUsuarios usuarios={usuarios} setUsuarios={setUsuarios} />
                           } />
                           <Route path="*" element={<Navigate to="/" />} />
