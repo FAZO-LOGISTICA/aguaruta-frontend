@@ -8,7 +8,7 @@ const STORE_NAME = "cola_entregas";
 // ============ ESTADOS REALES ============
 const ESTADOS = [
   { id: 1, label: "Entrega",                    emoji: "✅", color: "#16a34a", bg: "#dcfce7", border: "#86efac" },
-  { id: 0, label: "No entrega",                 emoji: "🚫", color: "#6b7280", bg: "#f3f4f6", border: "#d1d5db" },
+  { id: 0, label: "No entrega",                 emoji: "🚫", color: "#6b7280", bg: "#f3f4f6", border: "#d1d5db", foto: true },
   { id: 2, label: "No encontrado",              emoji: "🚪", color: "#d97706", bg: "#fef3c7", border: "#fcd34d" },
   { id: 3, label: "Camino malo",                emoji: "🚧", color: "#7c3aed", bg: "#ede9fe", border: "#c4b5fd", foto: true },
   { id: 4, label: "Falta al protocolo",         emoji: "⚠️", color: "#b45309", bg: "#fef9c3", border: "#fde047", foto: true },
