@@ -40,6 +40,10 @@ export default function Pagos() {
   const [modalPago, setModalPago] = useState(null); // familia del modal
   const [formPago, setFormPago]   = useState({ monto: "", forma_pago: "efectivo", observacion: "" });
 
+  // Editar jefe de hogar
+  const [modalEditarFamilia, setModalEditarFamilia] = useState(false);
+  const [formFamilia, setFormFamilia] = useState({ nombre: "", camion: "", litros: "", telefono: "" });
+
   // Residente
   const [modalResidente, setModalResidente] = useState(null); // familia_id
   const [formResidente, setFormResidente]   = useState({ nombre: "", rut: "", observacion: "" });
@@ -105,6 +109,33 @@ export default function Pagos() {
     } catch { alert("Error registrando pago"); }
   };
 
+  // ── Editar jefe de hogar ──
+  const abrirEditarFamilia = () => {
+    setFormFamilia({
+      nombre: familiaActual.nombre,
+      camion: familiaActual.camion,
+      litros: String(familiaActual.litros),
+      telefono: familiaActual.telefono || "",
+    });
+    setModalEditarFamilia(true);
+  };
+
+  const guardarFamilia = async () => {
+    if (!formFamilia.nombre.trim()) return alert("El nombre es obligatorio");
+    if (!formFamilia.litros || isNaN(formFamilia.litros)) return alert("Los litros deben ser un número");
+    try {
+      await axios.put(`${API_URL}/familias/${familiaActual.id}`, {
+        nombre: formFamilia.nombre.trim(),
+        camion: formFamilia.camion.toUpperCase(),
+        litros: parseInt(formFamilia.litros),
+        telefono: formFamilia.telefono,
+      });
+      setModalEditarFamilia(false);
+      abrirFamilia(familiaActual.id);
+      cargarResumen();
+    } catch { alert("Error guardando cambios"); }
+  };
+
   // ── Agregar residente ──
   const guardarResidente = async () => {
     if (!formResidente.nombre.trim()) return alert("Ingresa el nombre");
@@ -158,12 +189,15 @@ export default function Pagos() {
     const badge = badgeEstado(datos?.estado);
     return (
       <div className="main-container fade-in">
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
           <button onClick={() => setVista("resumen")} style={sBtn("#f1f5f9","#1e293b")}>
             ← Volver
           </button>
           <h2 className="titulo" style={{ margin: 0 }}>👨‍👩‍👧 {familiaActual.nombre}</h2>
           <span style={{ ...sBadge, background: badge.bg, color: badge.color }}>{badge.label}</span>
+          <button onClick={abrirEditarFamilia} style={sBtn("#e0f2fe","#0369a1")}>
+            ✏️ Editar jefe de hogar
+          </button>
         </div>
 
         {/* Info familia */}
@@ -415,6 +449,61 @@ export default function Pagos() {
           </tbody>
         </table>
       </div>
+
+      {/* ── MODAL EDITAR FAMILIA ── */}
+      {modalEditarFamilia && (
+        <div style={sOverlay}>
+          <div style={sModal}>
+            <h3 style={{ marginBottom: 16 }}>✏️ Editar jefe de hogar</h3>
+            <label style={sLabel}>Nombre *</label>
+            <input
+              placeholder="Nombre completo"
+              value={formFamilia.nombre}
+              onChange={e => setFormFamilia(f => ({...f, nombre: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 10 }}
+            />
+            <label style={sLabel}>Camión *</label>
+            <select
+              value={formFamilia.camion}
+              onChange={e => setFormFamilia(f => ({...f, camion: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 10 }}
+            >
+              {["A1","A2","A3","A4","A5","M1","M2","M3"].map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <label style={sLabel}>Litros asignados *</label>
+            <input
+              type="number"
+              placeholder="Ej: 2100"
+              value={formFamilia.litros}
+              onChange={e => setFormFamilia(f => ({...f, litros: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 4 }}
+            />
+            {formFamilia.litros && !isNaN(formFamilia.litros) && (
+              <div style={{ fontSize: 12, color: "#0369a1", marginBottom: 10 }}>
+                = {Math.floor(parseInt(formFamilia.litros) / 700)} persona{Math.floor(parseInt(formFamilia.litros) / 700) !== 1 ? "s" : ""}
+                {parseInt(formFamilia.litros) % 700 > 0 ? ` + ${parseInt(formFamilia.litros) % 700}L extra` : ""}
+              </div>
+            )}
+            <label style={sLabel}>Teléfono</label>
+            <input
+              placeholder="Ej: 912345678"
+              value={formFamilia.telefono}
+              onChange={e => setFormFamilia(f => ({...f, telefono: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 16 }}
+            />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={guardarFamilia} style={{ ...sBtn("#0f4c81","#fff"), flex: 1, padding: "10px 0" }}>
+                💾 Guardar cambios
+              </button>
+              <button onClick={() => setModalEditarFamilia(false)} style={{ ...sBtn("#f1f5f9","#374151"), flex: 1, padding: "10px 0" }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL PAGO ── */}
       {modalPago && (
