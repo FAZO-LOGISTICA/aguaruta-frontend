@@ -114,7 +114,7 @@ export default function Pagos() {
     if (!formPago.monto) return alert("Ingresa el monto");
     try {
       await axios.post(`${API_URL}/pagos`, {
-        jefe_id: modalPago.id,
+        jefe_id: modalPago.id || familiaActual?.id,
         anio, mes,
         monto: parseFloat(formPago.monto),
         forma_pago: formPago.forma_pago,
@@ -201,7 +201,18 @@ export default function Pagos() {
   // RENDER VISTA FAMILIA
   // ============================================================
   if (vista === "familia" && familiaActual) {
-    const datos = datosFamiliaEnResumen(familiaActual.id);
+    // datos del resumen si existe, sino objeto vacío para que siempre funcionen los botones
+    const datosResumen = datosFamiliaEnResumen(familiaActual.id);
+    const datos = datosResumen || {
+      id: familiaActual.id,
+      nombre: familiaActual.nombre,
+      camion: familiaActual.camion,
+      entregas_mes: 0,
+      cobro_calculado: 0,
+      pagado: 0,
+      deuda: 0,
+      estado: "sin_entregas",
+    };
     const badge = badgeEstado(datos?.estado);
     return (
       <div className="main-container fade-in">
@@ -232,8 +243,7 @@ export default function Pagos() {
         </div>
 
         {/* Cobro del mes seleccionado */}
-        {datos && (
-          <div style={{ background: "#fff", borderRadius: 14, padding: 20, marginBottom: 20, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+        <div style={{ background: "#fff", borderRadius: 14, padding: 20, marginBottom: 20, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>
               💰 Cobro {MESES[mes]} {anio}
             </div>
@@ -251,13 +261,12 @@ export default function Pagos() {
               ))}
             </div>
             <button
-              onClick={() => setModalPago(datos)}
+              onClick={() => setModalPago({ ...datos, id: familiaActual.id, nombre: familiaActual.nombre })}
               style={{ ...sBtn("#1d4ed8","#fff"), marginTop: 14, width: "100%", padding: "12px 0" }}
             >
               💳 Registrar pago {MESES[mes]}
             </button>
           </div>
-        )}
 
         {/* Residentes */}
         <div style={{ background: "#fff", borderRadius: 14, padding: 20, marginBottom: 20, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
@@ -338,6 +347,134 @@ export default function Pagos() {
             </table>
           )}
         </div>
+
+      {/* ── MODAL EDITAR FAMILIA ── */}
+      {modalEditarFamilia && (
+        <div style={sOverlay}>
+          <div style={sModal}>
+            <h3 style={{ marginBottom: 16 }}>✏️ Editar jefe de hogar</h3>
+            <label style={sLabel}>Nombre *</label>
+            <input
+              placeholder="Nombre completo"
+              value={formFamilia.nombre}
+              onChange={e => setFormFamilia(f => ({...f, nombre: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 10 }}
+            />
+            <label style={sLabel}>Camión *</label>
+            <select
+              value={formFamilia.camion}
+              onChange={e => setFormFamilia(f => ({...f, camion: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 10 }}
+            >
+              {["A1","A2","A3","A4","A5","M1","M2","M3"].map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <label style={sLabel}>Litros asignados *</label>
+            <input
+              type="number"
+              placeholder="Ej: 2100"
+              value={formFamilia.litros}
+              onChange={e => setFormFamilia(f => ({...f, litros: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 4 }}
+            />
+            {formFamilia.litros && !isNaN(formFamilia.litros) && (
+              <div style={{ fontSize: 12, color: "#0369a1", marginBottom: 10 }}>
+                = {Math.floor(parseInt(formFamilia.litros) / 700)} persona{Math.floor(parseInt(formFamilia.litros) / 700) !== 1 ? "s" : ""}
+                {parseInt(formFamilia.litros) % 700 > 0 ? ` + ${parseInt(formFamilia.litros) % 700}L extra` : ""}
+              </div>
+            )}
+            <label style={sLabel}>Teléfono</label>
+            <input
+              placeholder="Ej: 912345678"
+              value={formFamilia.telefono}
+              onChange={e => setFormFamilia(f => ({...f, telefono: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 16 }}
+            />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={guardarFamilia} style={{ ...sBtn("#0f4c81","#fff"), flex: 1, padding: "10px 0" }}>
+                💾 Guardar cambios
+              </button>
+              <button onClick={() => setModalEditarFamilia(false)} style={{ ...sBtn("#f1f5f9","#374151"), flex: 1, padding: "10px 0" }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL PAGO ── */}
+      {modalPago && (
+        <div style={sOverlay}>
+          <div style={sModal}>
+            <h3 style={{ marginBottom: 4 }}>💳 Registrar pago</h3>
+            <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
+              {modalPago.nombre} — {MESES[mes]} {anio}<br/>
+              <strong>Deuda: ${modalPago.deuda?.toLocaleString()}</strong>
+            </p>
+            <label style={sLabel}>Monto *</label>
+            <input
+              type="number"
+              placeholder={`Sugerido: $${modalPago.deuda?.toLocaleString()}`}
+              value={formPago.monto}
+              onChange={e => setFormPago(f => ({...f, monto: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 10 }}
+            />
+            <label style={sLabel}>Forma de pago</label>
+            <select value={formPago.forma_pago}
+              onChange={e => setFormPago(f => ({...f, forma_pago: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 10 }}>
+              {FORMAS_PAGO.map(fp => <option key={fp} value={fp} style={{ textTransform: "capitalize" }}>{fp}</option>)}
+            </select>
+            <label style={sLabel}>Observación (opcional)</label>
+            <input
+              placeholder="Ej: Pago parcial, resto quincena..."
+              value={formPago.observacion}
+              onChange={e => setFormPago(f => ({...f, observacion: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 16 }}
+            />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={registrarPago} style={{ ...sBtn("#16a34a","#fff"), flex: 1, padding: "10px 0" }}>✅ Confirmar pago</button>
+              <button onClick={() => setModalPago(null)} style={{ ...sBtn("#f1f5f9","#374151"), flex: 1, padding: "10px 0" }}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL RESIDENTE ── */}
+      {modalResidente && (
+        <div style={sOverlay}>
+          <div style={sModal}>
+            <h3 style={{ marginBottom: 16 }}>{editResidente ? "✏️ Editar residente" : "➕ Agregar residente"}</h3>
+            <label style={sLabel}>Nombre *</label>
+            <input
+              placeholder="Nombre completo"
+              value={formResidente.nombre}
+              onChange={e => setFormResidente(f => ({...f, nombre: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 10 }}
+            />
+            <label style={sLabel}>RUT (opcional)</label>
+            <input
+              placeholder="Ej: 12.345.678-9"
+              value={formResidente.rut}
+              onChange={e => setFormResidente(f => ({...f, rut: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 10 }}
+            />
+            <label style={sLabel}>Observación (opcional)</label>
+            <input
+              placeholder="Ej: Adulto mayor, discapacidad..."
+              value={formResidente.observacion}
+              onChange={e => setFormResidente(f => ({...f, observacion: e.target.value}))}
+              style={{ ...sInput, width: "100%", marginBottom: 16 }}
+            />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={guardarResidente} style={{ ...sBtn("#0f4c81","#fff"), flex: 1, padding: "10px 0" }}>💾 Guardar</button>
+              <button onClick={() => { setModalResidente(null); setEditResidente(null); }} style={{ ...sBtn("#f1f5f9","#374151"), flex: 1, padding: "10px 0" }}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       </div>
     );
   }
