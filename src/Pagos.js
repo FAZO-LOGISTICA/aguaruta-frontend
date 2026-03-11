@@ -74,6 +74,7 @@ export default function Pagos() {
       setCargando(true); setError("");
       const params = { anio, mes };
       if (camion) params.camion = camion;
+      if (diaFiltro) params.dia = diaFiltro;
       const res = await axios.get(`${API_URL}/resumen-pagos`, { params });
       setResumen(res.data);
       setNuevoPrecio(res.data.precio_unitario || "");
@@ -84,7 +85,7 @@ export default function Pagos() {
     }
   };
 
-  useEffect(() => { cargarResumen(); }, [anio, mes, camion]);
+  useEffect(() => { cargarResumen(); }, [anio, mes, camion, diaFiltro]);
 
   // ── Cargar detalle familia ──
   const abrirFamilia = async (fid) => {
@@ -185,17 +186,12 @@ export default function Pagos() {
     } catch { alert("Error eliminando pago"); }
   };
 
-  // ── Filtro local (día se filtra desde rutas) ──
+  // ── Filtro local (día y camión los maneja el backend) ──
   const familiasFiltradas = useMemo(() => {
     if (!resumen?.familias) return [];
     const q = busqueda.toLowerCase();
-    let lista = resumen.familias.filter(f => !q || f.nombre.toLowerCase().includes(q));
-    // Filtro por día: comparar contra rutas activas usando los nombres
-    if (diaFiltro && camion) {
-      lista = lista.filter(f => f._dias?.includes(diaFiltro));
-    }
-    return lista;
-  }, [resumen, busqueda, diaFiltro, camion]);
+    return resumen.familias.filter(f => !q || f.nombre.toLowerCase().includes(q));
+  }, [resumen, busqueda]);
 
   // ── Datos familia en resumen ──
   const datosFamiliaEnResumen = (fid) =>
