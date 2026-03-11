@@ -23,7 +23,9 @@ export default function Pagos() {
   const [anio, setAnio]   = useState(AÑO_HOY);
   const [mes, setMes]     = useState(MES_HOY);
   const [camion, setCamion] = useState("");
+  const [diaFiltro, setDiaFiltro] = useState("");
   const [busqueda, setBusqueda] = useState("");
+  const [rutasDias, setRutasDias] = useState({}); // camion -> dias disponibles
   const [resumen, setResumen]   = useState(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError]       = useState("");
@@ -50,6 +52,21 @@ export default function Pagos() {
   const [editResidente, setEditResidente]   = useState(null);
 
   const camiones = ["A1","A2","A3","A4","A5","M1","M2","M3"];
+  const DIAS = ["LUNES","MARTES","MIERCOLES","JUEVES","VIERNES"];
+
+  // Cargar días disponibles por camión
+  useEffect(() => {
+    axios.get(`${API_URL}/rutas-activas`).then(res => {
+      const map = {};
+      (res.data || []).forEach(r => {
+        if (!map[r.camion]) map[r.camion] = new Set();
+        if (r.dia) map[r.camion].add(r.dia.toUpperCase());
+      });
+      const result = {};
+      Object.keys(map).forEach(c => { result[c] = [...map[c]].sort(); });
+      setRutasDias(result);
+    }).catch(() => {});
+  }, []);
 
   // ── Cargar resumen ──
   const cargarResumen = async () => {
@@ -168,14 +185,17 @@ export default function Pagos() {
     } catch { alert("Error eliminando pago"); }
   };
 
-  // ── Filtro local ──
+  // ── Filtro local (día se filtra desde rutas) ──
   const familiasFiltradas = useMemo(() => {
     if (!resumen?.familias) return [];
     const q = busqueda.toLowerCase();
-    return resumen.familias.filter(f =>
-      !q || f.nombre.toLowerCase().includes(q)
-    );
-  }, [resumen, busqueda]);
+    let lista = resumen.familias.filter(f => !q || f.nombre.toLowerCase().includes(q));
+    // Filtro por día: comparar contra rutas activas usando los nombres
+    if (diaFiltro && camion) {
+      lista = lista.filter(f => f._dias?.includes(diaFiltro));
+    }
+    return lista;
+  }, [resumen, busqueda, diaFiltro, camion]);
 
   // ── Datos familia en resumen ──
   const datosFamiliaEnResumen = (fid) =>
@@ -334,30 +354,49 @@ export default function Pagos() {
       <h2 className="titulo">💰 Gestión de Pagos</h2>
 
       {/* Filtros + precio */}
-      <div style={{ display: "grid", gridTemplateColumns: "auto auto auto 1fr auto", gap: 12, alignItems: "end", marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 16, flexWrap: "wrap" }}>
         <div>
-          <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 }}>Mes</label>
+          <label style={sLabel}>Mes</label>
           <select value={mes} onChange={e => setMes(Number(e.target.value))} style={sInput}>
             {MESES.slice(1).map((m,i) => <option key={i+1} value={i+1}>{m}</option>)}
           </select>
         </div>
         <div>
-          <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 }}>Año</label>
+          <label style={sLabel}>Año</label>
           <input type="number" value={anio} onChange={e => setAnio(Number(e.target.value))} style={{ ...sInput, width: 90 }} />
         </div>
         <div>
-          <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 }}>Camión</label>
-          <select value={camion} onChange={e => setCamion(e.target.value)} style={sInput}>
+          <label style={sLabel}>Camión</label>
+          <select value={camion} onChange={e => { setCamion(e.target.value); setDiaFiltro(""); }} style={sInput}>
             <option value="">Todos</option>
-            {["A1","A2","A3","A4","A5","M1","M2","M3"].map(c => <option key={c} value={c}>{c}</option>)}
+            {camiones.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
-          <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 }}>Buscar</label>
-          <input placeholder="Nombre jefe de hogar..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={sInput} />
+          <label style={sLabel}>Día</label>
+          <select
+            value={diaFiltro}
+            onChange={e => setDiaFiltro(e.target.value)}
+            style={sInput}
+            disabled={!camion}
+          >
+            <option value="">Todos los días</option>
+            {(camion && rutasDias[camion] ? rutasDias[camion] : ["LUNES","MARTES","MIERCOLES","JUEVES","VIERNES"]).map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={sLabel}>Buscar nombre</label>
+          <input
+            placeholder="Nombre jefe de hogar..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            style={{ ...sInput, minWidth: 200 }}
+          />
         </div>
         <button onClick={cargarResumen} disabled={cargando} style={sBtn("#1d4ed8","#fff")}>
-          {cargando ? "..." : "Actualizar"}
+          {cargando ? "..." : "🔄 Actualizar"}
         </button>
       </div>
 
@@ -407,47 +446,81 @@ export default function Pagos() {
 
       {error && <div style={{ color: "#dc2626", marginBottom: 12 }}>{error}</div>}
 
-      {/* Tabla familias */}
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
-          <thead>
-            <tr style={{ background: "#f8fafc" }}>
-              {["Jefe de hogar","Camión","Litros","Personas","Entregas","Cobro","Pagado","Deuda","Estado",""].map(h => (
-                <th key={h} style={{ padding: "10px 14px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 12 }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {familiasFiltradas.map(f => {
-              const badge = badgeEstado(f.estado);
-              return (
-                <tr key={f.id} style={{ borderTop: "1px solid #f1f5f9", cursor: "pointer" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
-                  onMouseLeave={e => e.currentTarget.style.background = "#fff"}
-                >
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }}
-                    onClick={() => abrirFamilia(f.id)}>{f.nombre}</td>
-                  <td style={{ padding: "10px 14px" }} onClick={() => abrirFamilia(f.id)}>{f.camion}</td>
-                  <td style={{ padding: "10px 14px" }} onClick={() => abrirFamilia(f.id)}>{f.litros?.toLocaleString()} L</td>
-                  <td style={{ padding: "10px 14px" }} onClick={() => abrirFamilia(f.id)}>{f.personas}</td>
-                  <td style={{ padding: "10px 14px" }} onClick={() => abrirFamilia(f.id)}>{f.entregas_mes}</td>
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }} onClick={() => abrirFamilia(f.id)}>${f.cobro_calculado?.toLocaleString()}</td>
-                  <td style={{ padding: "10px 14px", color: "#16a34a", fontWeight: 600 }} onClick={() => abrirFamilia(f.id)}>${f.pagado?.toLocaleString()}</td>
-                  <td style={{ padding: "10px 14px", color: f.deuda > 0 ? "#dc2626" : "#16a34a", fontWeight: 700 }} onClick={() => abrirFamilia(f.id)}>${f.deuda?.toLocaleString()}</td>
-                  <td style={{ padding: "10px 14px" }} onClick={() => abrirFamilia(f.id)}>
-                    <span style={{ ...sBadge, background: badge.bg, color: badge.color }}>{badge.label}</span>
-                  </td>
-                  <td style={{ padding: "10px 14px" }}>
-                    <button onClick={() => setModalPago(f)} style={sBtn("#dcfce7","#16a34a")}>💳 Pagar</button>
-                  </td>
-                </tr>
-              );
-            })}
-            {familiasFiltradas.length === 0 && !cargando && (
-              <tr><td colSpan={10} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>Sin resultados</td></tr>
-            )}
-          </tbody>
-        </table>
+      {/* Panel familias con búsqueda inline */}
+      <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 2px 12px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+
+        {/* Contador + filtros activos */}
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 12 }}>
+          {resumen?.familias?.length > 0 && (
+            <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>
+              Mostrando {familiasFiltradas.length} de {resumen.familias.length} familias
+              {camion && <span style={{ marginLeft: 8, background: "#dbeafe", color: "#1d4ed8", padding: "2px 8px", borderRadius: 12, fontSize: 11 }}>🚚 {camion}</span>}
+              {diaFiltro && <span style={{ marginLeft: 6, background: "#ede9fe", color: "#7c3aed", padding: "2px 8px", borderRadius: 12, fontSize: 11 }}>📅 {diaFiltro}</span>}
+              {busqueda && <span style={{ marginLeft: 6, background: "#fef9c3", color: "#854d0e", padding: "2px 8px", borderRadius: 12, fontSize: 11 }}>🔍 "{busqueda}"</span>}
+            </div>
+          )}
+          {(camion || diaFiltro || busqueda) && (
+            <button
+              onClick={() => { setCamion(""); setDiaFiltro(""); setBusqueda(""); }}
+              style={{ ...sBtn("#f1f5f9","#64748b"), fontSize: 11, padding: "4px 10px", marginLeft: "auto" }}
+            >
+              ✕ Limpiar filtros
+            </button>
+          )}
+        </div>
+
+        {/* Cabecera tabla */}
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f8fafc" }}>
+                {["Jefe de hogar","Camión","Litros","Personas","Entregas","Cobro","Pagado","Deuda","Estado",""].map(h => (
+                  <th key={h} style={{ padding: "10px 14px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 12 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {cargando && (
+                <tr><td colSpan={10} style={{ padding: 24, textAlign: "center", color: "#64748b" }}>⏳ Cargando familias...</td></tr>
+              )}
+              {!cargando && familiasFiltradas.map(f => {
+                const badge = badgeEstado(f.estado);
+                return (
+                  <tr key={f.id} style={{ borderTop: "1px solid #f1f5f9", cursor: "pointer" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
+                    onMouseLeave={e => e.currentTarget.style.background = "#fff"}
+                  >
+                    <td style={{ padding: "10px 14px", fontWeight: 600 }}
+                      onClick={() => abrirFamilia(f.id)}>{f.nombre}</td>
+                    <td style={{ padding: "10px 14px" }} onClick={() => abrirFamilia(f.id)}>{f.camion}</td>
+                    <td style={{ padding: "10px 14px" }} onClick={() => abrirFamilia(f.id)}>{f.litros?.toLocaleString()} L</td>
+                    <td style={{ padding: "10px 14px" }} onClick={() => abrirFamilia(f.id)}>{f.personas}</td>
+                    <td style={{ padding: "10px 14px" }} onClick={() => abrirFamilia(f.id)}>{f.entregas_mes}</td>
+                    <td style={{ padding: "10px 14px", fontWeight: 600 }} onClick={() => abrirFamilia(f.id)}>${f.cobro_calculado?.toLocaleString()}</td>
+                    <td style={{ padding: "10px 14px", color: "#16a34a", fontWeight: 600 }} onClick={() => abrirFamilia(f.id)}>${f.pagado?.toLocaleString()}</td>
+                    <td style={{ padding: "10px 14px", color: f.deuda > 0 ? "#dc2626" : "#16a34a", fontWeight: 700 }} onClick={() => abrirFamilia(f.id)}>${f.deuda?.toLocaleString()}</td>
+                    <td style={{ padding: "10px 14px" }} onClick={() => abrirFamilia(f.id)}>
+                      <span style={{ ...sBadge, background: badge.bg, color: badge.color }}>{badge.label}</span>
+                    </td>
+                    <td style={{ padding: "10px 14px" }}>
+                      <button onClick={() => setModalPago(f)} style={sBtn("#dcfce7","#16a34a")}>💳 Pagar</button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!cargando && familiasFiltradas.length === 0 && resumen?.familias?.length > 0 && (
+                <tr><td colSpan={10} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>
+                  Sin resultados para "{busqueda}"
+                </td></tr>
+              )}
+              {!cargando && !resumen?.familias?.length && (
+                <tr><td colSpan={10} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>
+                  Sin familias — el backend sincronizará desde rutas_activas automáticamente
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ── MODAL EDITAR FAMILIA ── */}
