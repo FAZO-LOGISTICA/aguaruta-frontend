@@ -9,6 +9,7 @@ const initForm = {
   nombre: "",
   litros: "",
   telefono: "",
+  correo: "",
   latitud: "",
   longitud: "",
   dia: "",
@@ -26,7 +27,6 @@ const toInt = (v) => {
   return f === null ? null : Math.round(f);
 };
 
-// Distancia Haversine en km entre dos puntos
 function distanciaKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -39,7 +39,6 @@ function distanciaKm(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Encuentra el punto más cercano con coordenadas válidas
 function puntoMasCercano(lat, lon, rutasActivas) {
   let mejor = null;
   let minDist = Infinity;
@@ -59,12 +58,11 @@ function puntoMasCercano(lat, lon, rutasActivas) {
 export default function RegistrarNuevoPunto() {
   const [form, setForm] = useState(initForm);
   const [rutasActivas, setRutasActivas] = useState([]);
-  const [sugerencia, setSugerencia] = useState(null); // {camion, dia, distanciaKm}
+  const [sugerencia, setSugerencia] = useState(null);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null);
   const [err, setErr] = useState(null);
 
-  // Cargar rutas activas al montar — base para calcular proximidad
   useEffect(() => {
     apiMethods.getRutasActivas()
       .then((data) => setRutasActivas(Array.isArray(data) ? data : []))
@@ -73,7 +71,6 @@ export default function RegistrarNuevoPunto() {
 
   const set = (campo, valor) => setForm((f) => ({ ...f, [campo]: valor }));
 
-  // Recalcular sugerencia cada vez que cambian las coordenadas
   const onCoordsChange = (campo, valor) => {
     set(campo, valor);
     const lat = toFloat(campo === "latitud" ? valor : form.latitud);
@@ -81,13 +78,7 @@ export default function RegistrarNuevoPunto() {
     if (lat && lon && rutasActivas.length > 0) {
       const cercano = puntoMasCercano(lat, lon, rutasActivas);
       if (cercano) {
-        setSugerencia({
-          camion: cercano.camion,
-          dia: cercano.dia,
-          nombre: cercano.nombre,
-          distanciaKm: cercano.distanciaKm,
-        });
-        // Auto-rellenar camión y día si el usuario no los llenó
+        setSugerencia({ camion: cercano.camion, dia: cercano.dia, nombre: cercano.nombre, distanciaKm: cercano.distanciaKm });
         setForm((f) => ({
           ...f,
           [campo]: valor,
@@ -104,9 +95,6 @@ export default function RegistrarNuevoPunto() {
     if (!navigator.geolocation) return alert("GPS no disponible");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        onCoordsChange("latitud", pos.coords.latitude.toFixed(6));
-        setForm((f) => ({ ...f, longitud: pos.coords.longitude.toFixed(6) }));
-        // recalcular con ambas coords
         const lat = pos.coords.latitude;
         const lon = pos.coords.longitude;
         if (rutasActivas.length > 0) {
@@ -120,57 +108,46 @@ export default function RegistrarNuevoPunto() {
               camion: f.camion || cercano.camion,
               dia: f.dia || cercano.dia,
             }));
+            return;
           }
         }
+        setForm((f) => ({ ...f, latitud: lat.toFixed(6), longitud: lon.toFixed(6) }));
       },
       () => alert("No se pudo obtener la ubicación")
     );
   };
 
-  const limpiar = () => {
-    setForm(initForm);
-    setSugerencia(null);
-    setMsg(null);
-    setErr(null);
-  };
+  const limpiar = () => { setForm(initForm); setSugerencia(null); setMsg(null); setErr(null); };
 
   const onSubmit = async () => {
-    setMsg(null);
-    setErr(null);
+    setMsg(null); setErr(null);
 
     const nombre = form.nombre.trim();
     const litros = toInt(form.litros);
-    const lat = toFloat(form.latitud);
-    const lon = toFloat(form.longitud);
 
     if (!nombre) return setErr("Ingresa el nombre del beneficiario.");
     if (!litros || litros <= 0) return setErr("Ingresa los litros (debe ser > 0).");
 
-    // Camión final: lo que escribió el usuario o la sugerencia o A1 por defecto
     const camionFinal = (form.camion || sugerencia?.camion || "A1").toUpperCase().trim();
-    const diaFinal = (form.dia || sugerencia?.dia || "").toUpperCase().trim();
+    const diaFinal = (form.dia || sugerencia?.dia || "LUNES").toUpperCase().trim();
 
     const payload = {
       nombre,
       litros,
       telefono: form.telefono.trim() || null,
-      latitud: lat,
-      longitud: lon,
-      dia: diaFinal || "LUNES",
+      correo: form.correo.trim() || null,
+      latitud: toFloat(form.latitud),
+      longitud: toFloat(form.longitud),
+      dia: diaFinal,
       camion: camionFinal,
     };
 
     try {
       setLoading(true);
       await apiMethods.addRutaActiva(payload);
-
-      setMsg(`✅ Registrado. Camión: ${camionFinal} | Día: ${diaFinal || "LUNES"}`);
-
-      // Recargar rutas activas para que la próxima sugerencia sea correcta
+      setMsg(`✅ Registrado. Camión: ${camionFinal} | Día: ${diaFinal}`);
       const nuevas = await apiMethods.getRutasActivas();
       setRutasActivas(Array.isArray(nuevas) ? nuevas : []);
-
-      // Limpiar manteniendo coordenadas para registrar varios en la misma zona
       setForm((f) => ({ ...initForm, latitud: f.latitud, longitud: f.longitud }));
       setSugerencia(null);
     } catch (e) {
@@ -197,6 +174,19 @@ export default function RegistrarNuevoPunto() {
             <label className="form-label">Teléfono</label>
             <input className="input" placeholder="+569...." value={form.telefono} onChange={(e) => set("telefono", e.target.value)} />
           </div>
+        </div>
+
+        {/* Correo — fila completa */}
+        <div>
+          <label className="form-label">📧 Correo electrónico</label>
+          <input
+            className="input"
+            type="email"
+            placeholder="ejemplo@correo.com"
+            value={form.correo}
+            onChange={(e) => set("correo", e.target.value)}
+            style={{ width: "100%", boxSizing: "border-box" }}
+          />
         </div>
 
         {/* Litros + Día */}
@@ -245,7 +235,7 @@ export default function RegistrarNuevoPunto() {
         {/* Sugerencia de proximidad */}
         {sugerencia && (
           <div style={{ padding: "10px 14px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, fontSize: 13 }}>
-            📍 Punto más cercano: <strong>{sugerencia.nombre}</strong> — Camión <strong>{sugerencia.camion}</strong> | Día <strong>{sugerencia.dia}</strong> | {sugerencia.distanciaKm} km de distancia
+            📍 Punto más cercano: <strong>{sugerencia.nombre}</strong> — Camión <strong>{sugerencia.camion}</strong> | Día <strong>{sugerencia.dia}</strong> | {sugerencia.distanciaKm} km
           </div>
         )}
 
@@ -306,16 +296,8 @@ export default function RegistrarNuevoPunto() {
           </button>
         </div>
 
-        {msg && (
-          <div style={{ padding: "10px 14px", background: "#dcfce7", color: "#166534", borderRadius: 8, fontWeight: 600 }}>
-            {msg}
-          </div>
-        )}
-        {err && (
-          <div style={{ padding: "10px 14px", background: "#fee2e2", color: "#991b1b", borderRadius: 8, fontWeight: 600 }}>
-            {err}
-          </div>
-        )}
+        {msg && <div style={{ padding: "10px 14px", background: "#dcfce7", color: "#166534", borderRadius: 8, fontWeight: 600 }}>{msg}</div>}
+        {err && <div style={{ padding: "10px 14px", background: "#fee2e2", color: "#991b1b", borderRadius: 8, fontWeight: 600 }}>{err}</div>}
       </div>
 
       <p style={{ marginTop: 12, color: "#6b7280", fontSize: 13 }}>
