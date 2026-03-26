@@ -88,7 +88,12 @@ export default function EntregaMovil() {
   const [colaOffline, setColaOffline] = useState([]);
   const [sincronizando, setSincronizando] = useState(false);
   const [cargandoRutas, setCargandoRutas] = useState(true);
+
+  // Mapa de entregas por nombre: { [nombre_lower]: entregaLocal }
+  const [entregasMap, setEntregasMap] = useState({});
+
   const fileRef = useRef();
+
   useEffect(() => {
     let intentos = 0;
     const cargar = () => {
@@ -128,6 +133,39 @@ export default function EntregaMovil() {
     obtenerCola().then(setColaOffline).catch(() => {});
   }, []);
 
+  // Cargar entregas de hoy desde backend al montar (para persistir entre recargas)
+  useEffect(() => {
+    const hoy = new Date().toISOString().split("T")[0];
+    fetch(`${API_URL}/entregas-hoy?fecha=${hoy}`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const mapa = {};
+          const lista = [];
+          data.forEach(e => {
+            const estadoInfo = ESTADOS.find(es => es.id === e.estado) || ESTADOS[0];
+            const entregaLocal = {
+              nombre: e.nombre,
+              camion: e.camion,
+              litros: e.litros,
+              estado: e.estado,
+              estado_label: estadoInfo.label,
+              estado_emoji: estadoInfo.emoji,
+              estado_color: estadoInfo.color,
+              estadoInfo,
+              hora: e.fecha,
+              motivo: e.motivo,
+            };
+            mapa[e.nombre?.toLowerCase()] = entregaLocal;
+            lista.push(entregaLocal);
+          });
+          setEntregasMap(mapa);
+          setEntregasHoy(lista);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Sincronizar cola cuando vuelve conexión
   useEffect(() => {
     const sincronizar = async () => {
@@ -155,7 +193,7 @@ export default function EntregaMovil() {
     return () => window.removeEventListener("online", sincronizar);
   }, []);
 
-  // Lista completa del día — se dispara cada vez que cambian rutas, día, camión o búsqueda
+  // Lista completa del día
   useEffect(() => {
     if (step === "form") return;
     if (!diaFiltro || rutas.length === 0) { setResultados([]); return; }
@@ -213,6 +251,11 @@ export default function EntregaMovil() {
     return true;
   };
 
+  const marcarEnLista = (nombreCliente, entregaLocal) => {
+    const key = nombreCliente?.toLowerCase();
+    setEntregasMap(prev => ({ ...prev, [key]: entregaLocal }));
+  };
+
   const registrar = async () => {
     if (!clienteSeleccionado || !formularioValido()) return;
     setEnviando(true);
@@ -230,6 +273,7 @@ export default function EntregaMovil() {
 
     const entregaLocal = {
       ...payload,
+      estadoInfo: estadoSeleccionado,
       estado_label: estadoSeleccionado.label,
       estado_emoji: estadoSeleccionado.emoji,
       estado_color: estadoSeleccionado.color,
@@ -246,16 +290,18 @@ export default function EntregaMovil() {
       const res = await fetch(`${API_URL}/registrar-entregas`, { method: "POST", body: formData });
       if (res.ok) {
         setEntregasHoy(prev => [entregaLocal, ...prev]);
+        marcarEnLista(clienteSeleccionado.nombre, entregaLocal);
         setStep("success");
       } else {
         throw new Error("Error servidor");
       }
     } catch {
-      // Sin conexión → cola offline
       await guardarEnCola(payload);
       const colaActualizada = await obtenerCola();
       setColaOffline(colaActualizada);
-      setEntregasHoy(prev => [{ ...entregaLocal, offline: true }, ...prev]);
+      const entregaOffline = { ...entregaLocal, offline: true };
+      setEntregasHoy(prev => [entregaOffline, ...prev]);
+      marcarEnLista(clienteSeleccionado.nombre, entregaOffline);
       setStep("success");
     } finally {
       setEnviando(false);
@@ -340,17 +386,41 @@ export default function EntregaMovil() {
                 />
                 {resultados.length > 0 && (
                   <div style={{ ...s.dropdown, maxHeight: 340, overflowY: "auto", marginTop: 8 }}>
-                    {resultados.map((r, i) => (
-                      <button key={i} style={s.dropItem} onClick={() => seleccionarCliente(r)}>
-                        <div style={s.dropName}>{r.nombre}</div>
-                        <div style={s.dropMeta}>
-                          <span style={{...s.badge, background: "#dbeafe", color: "#1d4ed8"}}>🚚 {r.camion}</span>
-                          <span style={{...s.badge, background: "#f3f4f6", color: "#374151"}}>📅 {r.dia}</span>
-                          <span style={{...s.badge, background: "#d1fae5", color: "#065f46"}}>💧 {(r.litros || 0).toLocaleString()} L</span>
-                          {r.telefono && <span style={{...s.badge, background: "#fce7f3", color: "#9d174d"}}>📞 {r.telefono}</span>}
-                        </div>
-                      </button>
-                    ))}
+                    {resultados.map((r, i) => {
+                      const ent = entregasMap[r.nombre?.toLowerCase()];
+                      const est = ent?.estadoInfo || null;
+                      return (
+                        <button key={i}
+                          style={{
+                            ...s.dropItem,
+                            background: est ? est.bg : "#fff",
+                            borderLeft: est ? `4px solid ${est.border}` : "4px solid transparent",
+                          }}
+                          onClick={() => seleccionarCliente(r)}
+                        >
+                          <div style={{ ...s.dropName, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span>{r.nombre}</span>
+                            {est && (
+                              <span style={{
+                                fontSize: 11, fontWeight: 700,
+                                color: est.color,
+                                background: "#fff",
+                                border: `1px solid ${est.border}`,
+                                padding: "2px 8px", borderRadius: 6, whiteSpace: "nowrap", marginLeft: 6
+                              }}>
+                                {est.emoji} {est.label}
+                              </span>
+                            )}
+                          </div>
+                          <div style={s.dropMeta}>
+                            <span style={{...s.badge, background: "#dbeafe", color: "#1d4ed8"}}>🚚 {r.camion}</span>
+                            <span style={{...s.badge, background: "#f3f4f6", color: "#374151"}}>📅 {r.dia}</span>
+                            <span style={{...s.badge, background: "#d1fae5", color: "#065f46"}}>💧 {(r.litros || 0).toLocaleString()} L</span>
+                            {r.telefono && <span style={{...s.badge, background: "#fce7f3", color: "#9d174d"}}>📞 {r.telefono}</span>}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
                 {cargandoRutas && resultados.length === 0 && (
@@ -410,7 +480,6 @@ export default function EntregaMovil() {
                   </div>
                 </div>
 
-                {/* Foto obligatoria (estados 3 y 4) */}
                 {estadoSeleccionado?.foto && (
                   <div style={{...s.card, border: "2px solid #fbbf24"}}>
                     <div style={s.cardTitle}>📷 Foto de evidencia <span style={{color:"#dc2626"}}>(obligatoria)</span></div>
@@ -426,7 +495,6 @@ export default function EntregaMovil() {
                   </div>
                 )}
 
-                {/* Cantidad real (estados 5 y 6) */}
                 {estadoSeleccionado?.cantidad && (
                   <div style={{...s.card, border: "2px solid #7dd3fc"}}>
                     <div style={s.cardTitle}>🔢 Litros reales entregados <span style={{color:"#dc2626"}}>(obligatorio)</span></div>
@@ -452,7 +520,6 @@ export default function EntregaMovil() {
                   </div>
                 )}
 
-                {/* Motivo rechazo (estado 8) */}
                 {estadoSeleccionado?.motivo && (
                   <div style={{...s.card, border: "2px solid #fca5a5"}}>
                     <div style={s.cardTitle}>✏️ Motivo de rechazo <span style={{color:"#dc2626"}}>(obligatorio)</span></div>
@@ -491,10 +558,18 @@ export default function EntregaMovil() {
 
             {step === "success" && (
               <div style={s.successCard}>
-                <div style={s.successIcon}>🎉</div>
-                <div style={s.successTitle}>¡Entrega registrada!</div>
+                <div style={s.successIcon}>{estadoSeleccionado?.emoji || "🎉"}</div>
+                <div style={s.successTitle}>¡Registrado!</div>
                 <div style={s.successSub}>{clienteSeleccionado?.nombre}</div>
-                <div style={s.successEstado}>{estadoSeleccionado?.emoji} {estadoSeleccionado?.label}</div>
+                <div style={{
+                  ...s.successEstado,
+                  color: estadoSeleccionado?.color || "#16a34a",
+                  background: estadoSeleccionado?.bg || "#dcfce7",
+                  border: `1px solid ${estadoSeleccionado?.border || "#86efac"}`,
+                  padding: "8px 20px", borderRadius: 10, display: "inline-block", marginBottom: 16
+                }}>
+                  {estadoSeleccionado?.emoji} {estadoSeleccionado?.label}
+                </div>
                 {entregasHoy[0]?.offline && (
                   <div style={s.offlineBadge}>📤 Guardado sin conexión — se enviará automáticamente</div>
                 )}
@@ -513,9 +588,16 @@ export default function EntregaMovil() {
               </div>
             ) : (
               entregasHoy.map((e, i) => (
-                <div key={i} style={{...s.histItem, opacity: e.offline ? 0.7 : 1}}>
+                <div key={i} style={{
+                  ...s.histItem,
+                  opacity: e.offline ? 0.7 : 1,
+                  borderLeft: `4px solid ${e.estadoInfo?.border || e.estado_color || "#86efac"}`,
+                  background: e.estadoInfo?.bg || "#fff",
+                }}>
                   <div style={s.histHeader}>
-                    <span style={{...s.histEstado, color: e.estado_color}}>{e.estado_emoji} {e.estado_label}</span>
+                    <span style={{...s.histEstado, color: e.estadoInfo?.color || e.estado_color}}>
+                      {e.estado_emoji} {e.estado_label}
+                    </span>
                     <span style={s.histHora}>{e.hora} {e.offline ? "📤" : ""}</span>
                   </div>
                   <div style={s.histNombre}>{e.nombre}</div>
@@ -582,7 +664,7 @@ const s = {
   successIcon: { fontSize: 56, marginBottom: 12 },
   successTitle: { fontSize: 22, fontWeight: 700, color: "#0f172a", marginBottom: 4 },
   successSub: { fontSize: 15, color: "#64748b", marginBottom: 10 },
-  successEstado: { fontSize: 16, fontWeight: 600, color: "#16a34a", marginBottom: 16 },
+  successEstado: { fontSize: 16, fontWeight: 600 },
   offlineBadge: { fontSize: 12, color: "#92400e", background: "#fef3c7", padding: "8px 16px", borderRadius: 8, marginBottom: 16 },
   nuevaBtn: { padding: "14px 32px", background: "#0f4c81", color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
   emptyState: { textAlign: "center", padding: "60px 0" },
