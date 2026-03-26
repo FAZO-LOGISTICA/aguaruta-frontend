@@ -395,10 +395,11 @@ export default function EntregaMovil() {
                             ...s.dropItem,
                             background: est ? est.bg : "#fff",
                             borderLeft: est ? `4px solid ${est.border}` : "4px solid transparent",
+                            transition: "background 0.3s ease",
                           }}
                           onClick={() => seleccionarCliente(r)}
                         >
-                          <div style={{ ...s.dropName, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{ ...s.dropName, display: "flex", justifyContent: "space-between", alignItems: "center", color: est ? est.color : "#0f172a" }}>
                             <span>{r.nombre}</span>
                             {est && (
                               <span style={{
@@ -636,7 +637,7 @@ const s = {
   cardTitle: { fontSize: 13, fontWeight: 700, color: "#64748b", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" },
   input: { width: "100%", padding: "12px 14px", border: "1.5px solid #e2e8f0", borderRadius: 10, fontSize: 15, outline: "none", boxSizing: "border-box", fontFamily: "inherit", color: "#0f172a" },
   dropdown: { marginTop: 8, border: "1.5px solid #e2e8f0", borderRadius: 10, overflow: "hidden", background: "#fff" },
-  dropItem: { width: "100%", padding: "12px 14px", border: "none", borderBottom: "1px solid #f1f5f9", background: "#fff", textAlign: "left", cursor: "pointer", display: "block" },
+  dropItem: { width: "100%", padding: "12px 14px", border: "none", borderBottom: "1px solid #f1f5f9", background: "transparent", textAlign: "left", cursor: "pointer", display: "block" },
   dropName: { fontSize: 14, fontWeight: 600, color: "#0f172a", marginBottom: 5 },
   dropMeta: { display: "flex", flexWrap: "wrap", gap: 4 },
   badge: { fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 6 },
