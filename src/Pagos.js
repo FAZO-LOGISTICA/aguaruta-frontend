@@ -1,6 +1,9 @@
 // src/Pagos.js
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import axios from "axios";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import API_URL from "./config";
 
 const MESES = ["","Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -38,6 +41,9 @@ export default function Pagos() {
   const [cargandoMas, setCargandoMas]   = useState(false);
   const [error, setError]               = useState("");
 
+  // Exportar
+  const [exportando, setExportando] = useState(false);
+
   // Vista familia
   const [familiaActual, setFamiliaActual]     = useState(null);
   const [cargandoFamilia, setCargandoFamilia] = useState(false);
@@ -71,7 +77,7 @@ export default function Pagos() {
     }).catch(() => {});
   }, []);
 
-  // ── Carga inicial (primeras 50 familias) ──
+  // ── Carga inicial ──
   const cargarResumen = useCallback(async () => {
     try {
       setCargando(true); setError(""); setFamilias([]); setOffset(0);
@@ -114,7 +120,273 @@ export default function Pagos() {
     }
   };
 
-  // ── Filtro local solo por nombre ──
+  // ── Cargar TODAS las familias para exportar ──
+  const cargarTodasParaExportar = async () => {
+    const params = { anio, mes, limit: 2000, offset: 0 };
+    if (camion) params.camion = camion;
+    if (diaFiltro) params.dia = diaFiltro;
+    const res = await axios.get(`${API_URL}/resumen-pagos`, { params });
+    return res.data.familias || [];
+  };
+
+  // ── Cargar residentes de una familia ──
+  const cargarResidentesFamilia = async (fid) => {
+    try {
+      const res = await axios.get(`${API_URL}/familias/${fid}`);
+      return res.data.residentes || [];
+    } catch {
+      return [];
+    }
+  };
+
+  // ── EXPORTAR EXCEL ──
+  const exportarExcel = async () => {
+    try {
+      setExportando(true);
+      const todasFamilias = await cargarTodasParaExportar();
+
+      // Hoja 1: Resumen por titular
+      const resumenData = todasFamilias.map(f => ({
+        "Jefe de Hogar": f.nombre,
+        "Camión": f.camion,
+        "Litros": f.litros,
+        "Personas": f.personas,
+        "Entregas del Mes": f.entregas_mes,
+        "Cobro Calculado ($)": f.cobro_calculado,
+        "Pagado ($)": f.pagado,
+        "Deuda ($)": f.deuda,
+        "Estado": f.estado === "pagado" ? "Pagado" : f.estado === "moroso" ? "Moroso" : "Sin entregas",
+      }));
+
+      // Hoja 2: Titulares + residentes expandidos
+      const detalleRows = [];
+      for (const f of todasFamilias) {
+        const residentes = await cargarResidentesFamilia(f.id);
+        if (residentes.length === 0) {
+          detalleRows.push({
+            "Jefe de Hogar": f.nombre,
+            "Camión": f.camion,
+            "Litros": f.litros,
+            "Personas": f.personas,
+            "Tipo": "Titular",
+            "Nombre Residente": "—",
+            "RUT": "—",
+            "Observación": "—",
+            "Entregas Mes": f.entregas_mes,
+            "Cobro ($)": f.cobro_calculado,
+            "Pagado ($)": f.pagado,
+            "Deuda ($)": f.deuda,
+            "Estado": f.estado === "pagado" ? "Pagado" : f.estado === "moroso" ? "Moroso" : "Sin entregas",
+          });
+        } else {
+          residentes.forEach((r, idx) => {
+            detalleRows.push({
+              "Jefe de Hogar": f.nombre,
+              "Camión": idx === 0 ? f.camion : "",
+              "Litros": idx === 0 ? f.litros : "",
+              "Personas": idx === 0 ? f.personas : "",
+              "Tipo": idx === 0 ? "Titular" : "Residente",
+              "Nombre Residente": r.nombre,
+              "RUT": r.rut || "—",
+              "Observación": r.observacion || "—",
+              "Entregas Mes": idx === 0 ? f.entregas_mes : "",
+              "Cobro ($)": idx === 0 ? f.cobro_calculado : "",
+              "Pagado ($)": idx === 0 ? f.pagado : "",
+              "Deuda ($)": idx === 0 ? f.deuda : "",
+              "Estado": idx === 0 ? (f.estado === "pagado" ? "Pagado" : f.estado === "moroso" ? "Moroso" : "Sin entregas") : "",
+            });
+          });
+        }
+      }
+
+      const wb = XLSX.utils.book_new();
+
+      // Hoja 1
+      const ws1 = XLSX.utils.json_to_sheet(resumenData);
+      ws1["!cols"] = [
+        { wch: 35 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
+        { wch: 15 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 14 }
+      ];
+      XLSX.utils.book_append_sheet(wb, ws1, "Resumen Pagos");
+
+      // Hoja 2
+      const ws2 = XLSX.utils.json_to_sheet(detalleRows);
+      ws2["!cols"] = [
+        { wch: 35 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
+        { wch: 30 }, { wch: 15 }, { wch: 25 },
+        { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }
+      ];
+      XLSX.utils.book_append_sheet(wb, ws2, "Titulares y Residentes");
+
+      XLSX.writeFile(wb, `pagos_${MESES[mes]}_${anio}${camion ? `_${camion}` : ""}.xlsx`);
+    } catch (e) {
+      alert("Error al exportar Excel");
+      console.error(e);
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  // ── EXPORTAR PDF ──
+  const exportarPDF = async () => {
+    try {
+      setExportando(true);
+      const todasFamilias = await cargarTodasParaExportar();
+
+      const doc = new jsPDF({ orientation: "landscape" });
+      const titulo = `Listado de Pagos — ${MESES[mes]} ${anio}${camion ? ` — Camión ${camion}` : ""}`;
+
+      // ── PÁGINA 1: Resumen por titular ──
+      doc.setFontSize(14);
+      doc.setTextColor(15, 76, 129);
+      doc.text("AguaRuta — " + titulo, 14, 16);
+
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text(`Generado: ${new Date().toLocaleDateString("es-CL")} | Total familias: ${todasFamilias.length} | Precio unitario: $${Number(precioUnitario).toLocaleString()}`, 14, 22);
+
+      // KPIs resumen
+      if (resumenKpis) {
+        const kpiY = 28;
+        const kpis = [
+          { label: "Total cobrado", val: `$${resumenKpis.total_cobrado?.toLocaleString()}` },
+          { label: "Total pagado",  val: `$${resumenKpis.total_pagado?.toLocaleString()}` },
+          { label: "Total deuda",   val: `$${resumenKpis.total_deuda?.toLocaleString()}` },
+          { label: "Pagados",       val: String(resumenKpis.pagados) },
+          { label: "Morosos",       val: String(resumenKpis.morosos) },
+        ];
+        kpis.forEach((k, i) => {
+          const x = 14 + i * 56;
+          doc.setFillColor(240, 244, 255);
+          doc.roundedRect(x, kpiY, 52, 12, 2, 2, "F");
+          doc.setFontSize(7);
+          doc.setTextColor(100);
+          doc.text(k.label, x + 3, kpiY + 5);
+          doc.setFontSize(10);
+          doc.setTextColor(15, 76, 129);
+          doc.text(k.val, x + 3, kpiY + 11);
+        });
+      }
+
+      doc.autoTable({
+        startY: 46,
+        head: [["Jefe de Hogar", "Camión", "Litros", "Personas", "Entregas", "Cobro", "Pagado", "Deuda", "Estado"]],
+        body: todasFamilias.map(f => [
+          f.nombre,
+          f.camion,
+          `${f.litros?.toLocaleString()} L`,
+          f.personas,
+          f.entregas_mes,
+          `$${f.cobro_calculado?.toLocaleString()}`,
+          `$${f.pagado?.toLocaleString()}`,
+          `$${f.deuda?.toLocaleString()}`,
+          f.estado === "pagado" ? "Pagado" : f.estado === "moroso" ? "Moroso" : "Sin entregas",
+        ]),
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [15, 76, 129], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 60 },
+          7: { fontStyle: "bold" },
+          8: { fontStyle: "bold" },
+        },
+        didDrawCell: (data) => {
+          if (data.section === "body" && data.column.index === 8) {
+            const estado = todasFamilias[data.row.index]?.estado;
+            if (estado === "pagado") doc.setTextColor(22, 163, 74);
+            else if (estado === "moroso") doc.setTextColor(220, 38, 38);
+            else doc.setTextColor(100, 116, 139);
+          }
+        },
+      });
+
+      // ── PÁGINA 2: Titulares + Residentes ──
+      doc.addPage("landscape");
+      doc.setFontSize(14);
+      doc.setTextColor(15, 76, 129);
+      doc.text("AguaRuta — Titulares y Grupo Familiar — " + `${MESES[mes]} ${anio}`, 14, 16);
+
+      const detalleRows = [];
+      for (const f of todasFamilias) {
+        const residentes = await cargarResidentesFamilia(f.id);
+        const estadoLabel = f.estado === "pagado" ? "Pagado" : f.estado === "moroso" ? "Moroso" : "Sin entregas";
+
+        // Fila titular
+        detalleRows.push({
+          nombre: f.nombre,
+          camion: f.camion,
+          tipo: "Titular",
+          residente: "—",
+          rut: "—",
+          observacion: "—",
+          entregas: f.entregas_mes,
+          cobro: `$${f.cobro_calculado?.toLocaleString()}`,
+          pagado: `$${f.pagado?.toLocaleString()}`,
+          deuda: `$${f.deuda?.toLocaleString()}`,
+          estado: estadoLabel,
+          esTitular: true,
+        });
+
+        // Filas residentes
+        residentes.forEach(r => {
+          detalleRows.push({
+            nombre: "",
+            camion: "",
+            tipo: "Residente",
+            residente: r.nombre,
+            rut: r.rut || "—",
+            observacion: r.observacion || "—",
+            entregas: "",
+            cobro: "",
+            pagado: "",
+            deuda: "",
+            estado: "",
+            esTitular: false,
+          });
+        });
+      }
+
+      doc.autoTable({
+        startY: 24,
+        head: [["Jefe de Hogar", "Camión", "Tipo", "Nombre Residente", "RUT", "Observación", "Entregas", "Cobro", "Pagado", "Deuda", "Estado"]],
+        body: detalleRows.map(r => [
+          r.nombre, r.camion, r.tipo, r.residente,
+          r.rut, r.observacion, r.entregas,
+          r.cobro, r.pagado, r.deuda, r.estado,
+        ]),
+        styles: { fontSize: 7.5, cellPadding: 2.5 },
+        headStyles: { fillColor: [15, 76, 129], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 50 },
+          3: { cellWidth: 45 },
+          5: { cellWidth: 40 },
+        },
+        didParseCell: (data) => {
+          if (data.section === "body") {
+            const row = detalleRows[data.row.index];
+            if (row?.esTitular) {
+              data.cell.styles.fillColor = [224, 242, 254];
+              data.cell.styles.fontStyle = "bold";
+            }
+            if (data.column.index === 10) {
+              if (row?.estado === "Pagado") data.cell.styles.textColor = [22, 163, 74];
+              else if (row?.estado === "Moroso") data.cell.styles.textColor = [220, 38, 38];
+            }
+          }
+        },
+      });
+
+      doc.save(`pagos_${MESES[mes]}_${anio}${camion ? `_${camion}` : ""}.pdf`);
+    } catch (e) {
+      alert("Error al exportar PDF");
+      console.error(e);
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  // ── Filtro local ──
   const familiasFiltradas = useMemo(() => {
     if (!busqueda) return familias;
     return familias.filter(f => f.nombre.toLowerCase().includes(busqueda.toLowerCase()));
@@ -374,7 +646,45 @@ export default function Pagos() {
         <button onClick={cargarResumen} disabled={cargando} style={sBtn("#1d4ed8","#fff")}>
           {cargando ? "⏳ Cargando..." : "🔄 Actualizar"}
         </button>
+
+        {/* ── BOTONES EXPORTAR ── */}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "flex-end" }}>
+          <div>
+            <label style={{ ...sLabel, opacity: 0 }}>_</label>
+            <button
+              onClick={exportarExcel}
+              disabled={exportando || cargando}
+              style={{
+                ...sBtn("#16a34a","#fff"),
+                opacity: exportando ? 0.6 : 1,
+                display: "flex", alignItems: "center", gap: 6
+              }}
+            >
+              {exportando ? "⏳ Exportando..." : "📤 Excel"}
+            </button>
+          </div>
+          <div>
+            <label style={{ ...sLabel, opacity: 0 }}>_</label>
+            <button
+              onClick={exportarPDF}
+              disabled={exportando || cargando}
+              style={{
+                ...sBtn("#0f4c81","#fff"),
+                opacity: exportando ? 0.6 : 1,
+                display: "flex", alignItems: "center", gap: 6
+              }}
+            >
+              {exportando ? "⏳ Exportando..." : "📄 PDF"}
+            </button>
+          </div>
+        </div>
       </div>
+
+      {exportando && (
+        <div style={{ background: "#e0f2fe", border: "1px solid #7dd3fc", borderRadius: 10, padding: "10px 16px", marginBottom: 12, fontSize: 13, color: "#0369a1", fontWeight: 600 }}>
+          ⏳ Generando reporte completo con residentes... Esto puede tomar unos segundos.
+        </div>
+      )}
 
       {/* Precio del mes */}
       <div style={{ background: "#fff", borderRadius: 14, padding: "14px 20px", marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
@@ -418,15 +728,13 @@ export default function Pagos() {
 
       {/* Tabla */}
       <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 2px 12px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-
-        {/* Header contador */}
         <div style={{ padding: "12px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>
             {cargando
               ? "⏳ Cargando primeras 50 familias..."
               : `Mostrando ${familiasFiltradas.length} de ${totalCount} familias`
             }
-            {camion   && <span style={{ marginLeft: 8, background: "#dbeafe", color: "#1d4ed8", padding: "2px 8px", borderRadius: 12, fontSize: 11 }}>🚚 {camion}</span>}
+            {camion    && <span style={{ marginLeft: 8, background: "#dbeafe", color: "#1d4ed8", padding: "2px 8px", borderRadius: 12, fontSize: 11 }}>🚚 {camion}</span>}
             {diaFiltro && <span style={{ marginLeft: 6, background: "#ede9fe", color: "#7c3aed", padding: "2px 8px", borderRadius: 12, fontSize: 11 }}>📅 {diaFiltro}</span>}
             {busqueda  && <span style={{ marginLeft: 6, background: "#fef9c3", color: "#854d0e", padding: "2px 8px", borderRadius: 12, fontSize: 11 }}>🔍 "{busqueda}"</span>}
           </div>
@@ -486,7 +794,6 @@ export default function Pagos() {
           </table>
         </div>
 
-        {/* Botón cargar más */}
         {!cargando && hayMas && (
           <div style={{ padding: "16px 20px", borderTop: "1px solid #f1f5f9", textAlign: "center" }}>
             <button onClick={cargarMas} disabled={cargandoMas}
