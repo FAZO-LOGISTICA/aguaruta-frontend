@@ -21,6 +21,7 @@ import EntregaMovil from "./EntregaMovil";
 import Pagos from "./Pagos";
 import CierreMes from "./CierreMes";
 import "./estilos/Inicio.css";
+import "./App.css";
 
 const USUARIO_MAESTRO = { username: "che.gustrago", password: "", role: "dios" };
 
@@ -44,7 +45,8 @@ const menuItems = [
   { path: "/no-entregadas",       label: "No Entregadas",       roles: ["dios","editor"] },
   { path: "/entregas-app",        label: "Entregas App",        roles: ["dios","editor"] },
   { path: "/pagos",               label: "💰 Pagos",            roles: ["dios","editor"] },
-  { path: "/cierre-mes",          label: "📅 Cierre Mes",       roles: ["dios"] },
+  { path: "/usuarios",            label: "Usuarios",            roles: ["dios"] },
+
   { path: "/auditoria",           label: "Auditoría",           roles: ["dios"] },
 
 ];
@@ -186,7 +188,7 @@ function App() {
                           <Route path="/cierre-mes"          element={<CierreMes />} />
                           <Route path="/auditoria"           element={<Auditoria />} />
                           <Route path="/usuarios"            element={
-                            <AdminUsuarios usuarios={usuarios} setUsuarios={setUsuarios} />
+                            <AdminUsuarios />
                           } />
                           <Route path="*" element={<Navigate to="/" />} />
                         </Routes>
