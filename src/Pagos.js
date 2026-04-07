@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import API_URL from "./config";
 
 const MESES = ["","Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -223,7 +223,7 @@ export default function Pagos() {
         });
       });
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: 42,
         head: [["Jefe de Hogar / Grupo Familiar", "Camión", "Litros", "Pers.", "Entrega", "Cobro", "Pagado", "Deuda", "Estado"]],
         body: bodyRows,
