@@ -104,7 +104,7 @@ export default function Pagos() {
     finally { setCargandoMas(false); }
   };
 
-  // ── UNA sola llamada — backend devuelve familias + residentes juntos ──
+  // ── UNA sola llamada - backend devuelve familias + residentes juntos ──
   const cargarCompleto = async () => {
     const params = { anio, mes };
     if (camion) params.camion = camion;
@@ -129,9 +129,9 @@ export default function Pagos() {
         titularRows.push(filas.length); // índice de esta fila titular
         // Fila titular con todos los datos
         filas.push([f.nombre, f.camion, `${(f.litros||0).toLocaleString()} L`, f.personas, f.entregas_mes, f.cobro_calculado, f.pagado, f.deuda, estadoLabel]);
-        // Filas residentes — solo nombre y RUT, resto vacío
+        // Filas residentes - solo nombre y RUT, resto vacío
         (f.residentes || []).forEach(r => {
-          filas.push([`    └ ${r.nombre}${r.rut && r.rut !== "—" ? `  (${r.rut})` : ""}`, "", "", "", "", "", "", "", ""]);
+          filas.push([`    > ${r.nombre}${r.rut && r.rut !== "--" ? "  (" + r.rut + ")" : ""}`, "", "", "", "", "", "", "", ""]);
         });
       });
 
@@ -158,7 +158,7 @@ export default function Pagos() {
 
       // Hoja resumen KPIs
       const ws2 = XLSX.utils.aoa_to_sheet([
-        ["Reporte", `${MESES[mes]} ${anio}${camion ? ` — Camión ${camion}` : ""}`],
+        ["Reporte", `${MESES[mes]} ${anio}${camion ? ` - Camion ${camion}` : ""}`],
         [],
         ["Total familias",   todas.length],
         ["Pagados",          todas.filter(f => f.estado === "pagado").length],
@@ -187,7 +187,7 @@ export default function Pagos() {
 
       // Título
       doc.setFontSize(14); doc.setTextColor(15, 76, 129);
-      doc.text(`AguaRuta — Listado de Pagos — ${MESES[mes]} ${anio}${camion ? ` — Camión ${camion}` : ""}`, 14, 13);
+      doc.text(`AguaRuta - Listado de Pagos - ${MESES[mes]} ${anio}${camion ? ` - Camion ${camion}` : ""}`, 14, 13);
       doc.setFontSize(8); doc.setTextColor(120);
       doc.text(`Generado: ${new Date().toLocaleDateString("es-CL")} · Familias: ${todas.length}`, 14, 20);
 
@@ -208,7 +208,7 @@ export default function Pagos() {
         });
       }
 
-      // Construir filas — titular + residentes abajo
+      // Construir filas - titular + residentes abajo
       const bodyRows = [];
       const rowMeta  = [];
 
@@ -218,7 +218,7 @@ export default function Pagos() {
         rowMeta.push({ esTitular: true, estado: f.estado });
 
         (f.residentes || []).forEach(r => {
-          bodyRows.push([`    └ ${r.nombre}${r.rut && r.rut !== "—" ? `  (${r.rut})` : ""}`, "", "", "", "", "", "", "", ""]);
+          bodyRows.push([`    > ${r.nombre}${r.rut && r.rut !== "--" ? "  (" + r.rut + ")" : ""}`, "", "", "", "", "", "", "", ""]);
           rowMeta.push({ esTitular: false });
         });
       });
@@ -261,7 +261,7 @@ export default function Pagos() {
       for (let i = 1; i <= pages; i++) {
         doc.setPage(i);
         doc.setFontSize(7); doc.setTextColor(180);
-        doc.text(`AguaRuta — ${MESES[mes]} ${anio} | Página ${i} de ${pages}`,
+        doc.text(`AguaRuta - ${MESES[mes]} ${anio} | Página ${i} de ${pages}`,
           doc.internal.pageSize.getWidth() / 2,
           doc.internal.pageSize.getHeight() - 5,
           { align: "center" }
@@ -632,7 +632,7 @@ function ModalPago({ modalPago, mes, anio, formPago, setFormPago, registrarPago,
     <div style={sOverlay}><div style={sModal}>
       <h3 style={{marginBottom:4}}>💳 Registrar pago</h3>
       <p style={{color:"#64748b",fontSize:13,marginBottom:16}}>
-        {modalPago.nombre} — {MESES[mes]} {anio}<br/>
+        {modalPago.nombre} - {MESES[mes]} {anio}<br/>
         <strong>Deuda: ${modalPago.deuda?.toLocaleString()}</strong>
       </p>
       <label style={sLabel}>Monto *</label>
