@@ -1,6 +1,6 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate, useLocation } from "react-router-dom";
 
 import Inicio from "./Inicio";
 import Mapa from "./Mapa";
@@ -20,38 +20,68 @@ import Auditoria from "./Auditoria";
 import EntregaMovil from "./EntregaMovil";
 import Pagos from "./Pagos";
 import CierreMes from "./CierreMes";
+import "./estilos/Inicio.css";
 
-// ================= USUARIO MAESTRO (auto-login) =================
 const USUARIO_MAESTRO = { username: "che.gustrago", password: "", role: "dios" };
 
-// ================= USUARIOS =================
 const usuariosEjemplo = [
   USUARIO_MAESTRO,
   { username: "laguna_verde", password: "delegacion", role: "editor" },
-  { username: "operaciones", password: "direccion", role: "editor" }
+  { username: "operaciones",  password: "direccion",  role: "editor" }
 ];
 
-// ================= MENÚ =================
 const menuItems = [
-  { path: "/",                    label: "Inicio",               roles: ["dios", "editor", "invitado"] },
-  { path: "/mapa",                label: "Mapa",                 roles: ["dios", "editor", "invitado"] },
-  { path: "/graficos",            label: "Gráficos",             roles: ["dios", "editor", "invitado"] },
-  { path: "/estadisticas-camion", label: "Estadísticas Camión",  roles: ["dios", "editor", "invitado"] },
-  { path: "/comparacion-semanal", label: "Comparación Semanal",  roles: ["dios", "editor", "invitado"] },
-  { path: "/rutas-por-camion",    label: "Rutas por Camión",     roles: ["dios", "editor", "invitado"] },
-  { path: "/rutas-activas",       label: "Ruta Activa",          roles: ["dios", "editor"] },
-  { path: "/registrar-entrega",   label: "Registrar Entrega",    roles: ["dios", "editor"] },
-  { path: "/entregas",            label: "Entregas",             roles: ["dios", "editor"] },
-  { path: "/registrar-punto",     label: "Registrar Punto",      roles: ["dios", "editor"] },
-  { path: "/no-entregadas",       label: "No Entregadas",        roles: ["dios", "editor"] },
-  { path: "/entregas-app",        label: "Entregas App",         roles: ["dios", "editor"] },
-  { path: "/pagos",               label: "💰 Pagos",             roles: ["dios", "editor"] },
-  { path: "/cierre-mes",          label: "📅 Cierre Mes",        roles: ["dios"] },
-  { path: "/auditoria",           label: "Auditoría",            roles: ["dios"] },
-  { path: "/usuarios",            label: "Usuarios",             roles: ["dios"] },
+  { path: "/",                    label: "Inicio",              roles: ["dios","editor","invitado"] },
+  { path: "/mapa",                label: "Mapa",                roles: ["dios","editor","invitado"] },
+  { path: "/graficos",            label: "Gráficos",            roles: ["dios","editor","invitado"] },
+  { path: "/estadisticas-camion", label: "Est. Camión",         roles: ["dios","editor","invitado"] },
+  { path: "/comparacion-semanal", label: "Comparación",         roles: ["dios","editor","invitado"] },
+  { path: "/rutas-por-camion",    label: "Rutas Camión",        roles: ["dios","editor","invitado"] },
+  { path: "/rutas-activas",       label: "Ruta Activa",         roles: ["dios","editor"] },
+  { path: "/registrar-entrega",   label: "Registrar Entrega",   roles: ["dios","editor"] },
+  { path: "/entregas",            label: "Entregas",            roles: ["dios","editor"] },
+  { path: "/registrar-punto",     label: "Nuevo Punto",         roles: ["dios","editor"] },
+  { path: "/no-entregadas",       label: "No Entregadas",       roles: ["dios","editor"] },
+  { path: "/entregas-app",        label: "Entregas App",        roles: ["dios","editor"] },
+  { path: "/pagos",               label: "💰 Pagos",            roles: ["dios","editor"] },
+  { path: "/cierre-mes",          label: "📅 Cierre Mes",       roles: ["dios"] },
+  { path: "/auditoria",           label: "Auditoría",           roles: ["dios"] },
+
 ];
 
-// ================= CONTROL EXTERNO (iframe) =================
+// ── Navbar ──
+function Navbar({ usuarioActual, onLogout }) {
+  const location = useLocation();
+
+  return (
+    <nav className="navbar-aguaruta">
+      <Link to="/" className="navbar-brand">
+        <span className="navbar-brand-icon">💧</span>
+        <span className="navbar-brand-name">AguaRuta</span>
+      </Link>
+
+      <div className="navbar-links">
+        {menuItems
+          .filter(item => item.roles.includes(usuarioActual.role))
+          .map(item => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`navbar-link${location.pathname === item.path ? " active" : ""}`}
+            >
+              {item.label}
+            </Link>
+          ))}
+      </div>
+
+      <button onClick={onLogout} className="navbar-logout">
+        Cerrar sesión
+      </button>
+    </nav>
+  );
+}
+
+// ── Controlador externo ──
 function ControladorExterno({ children, usuarioActual }) {
   const navigate = useNavigate();
 
@@ -61,20 +91,14 @@ function ControladorExterno({ children, usuarioActual }) {
         event.origin !== "https://fazo-logistica-aura.netlify.app" &&
         event.origin !== "http://localhost:3000"
       ) return;
-
       if (!usuarioActual) return;
-
       const { type, target } = event.data;
-      console.log("📩 Comando recibido desde FAZO:", event.data);
-
       if (type === "GO_TO" && target) navigate(target);
-
       if (type === "DESCARGAR_GRAFICOS_PDF") {
         const boton = document.querySelector("#btnDescargarPDF");
         if (boton) boton.click();
       }
     };
-
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [navigate, usuarioActual]);
@@ -82,16 +106,14 @@ function ControladorExterno({ children, usuarioActual }) {
   return children;
 }
 
-// ================= APP =================
+// ── App ──
 function App() {
   const [usuarioActual, setUsuarioActual] = useState(() => {
     try {
       const saved = localStorage.getItem("aura_session");
       if (saved) return JSON.parse(saved);
     } catch {}
-    try {
-      localStorage.setItem("aura_session", JSON.stringify(USUARIO_MAESTRO));
-    } catch {}
+    try { localStorage.setItem("aura_session", JSON.stringify(USUARIO_MAESTRO)); } catch {}
     return USUARIO_MAESTRO;
   });
 
@@ -104,8 +126,7 @@ function App() {
       return true;
     }
     const user = usuarios.find(u =>
-      u.username === username &&
-      (u.password === "" || u.password === password)
+      u.username === username && (u.password === "" || u.password === password)
     );
     if (user) {
       setUsuarioActual(user);
@@ -124,39 +145,17 @@ function App() {
     <Router>
       <Routes>
 
-        {/* ======================================================
-            RUTA PÚBLICA — App móvil repartidor
-            Acceso directo sin login ni navbar
-            URL: https://aguaruta.netlify.app/movil
-        ====================================================== */}
+        {/* ── App móvil repartidor — sin navbar ── */}
         <Route path="/movil" element={<EntregaMovil />} />
 
-        {/* ======================================================
-            RUTAS PROTEGIDAS — Panel admin
-        ====================================================== */}
+        {/* ── Panel admin ── */}
         <Route
           path="*"
           element={
             <>
               {usuarioActual && (
-                <nav style={{
-                  background: "#153a5e", padding: "0.2rem 2rem",
-                  position: "sticky", top: 0, zIndex: 100
-                }}>
-                  {menuItems
-                    .filter(item => item.roles.includes(usuarioActual.role))
-                    .map(item => (
-                      <Link key={item.path} to={item.path}
-                        style={{ color: "#fff", marginRight: "1rem", textDecoration: "none" }}>
-                        {item.label}
-                      </Link>
-                    ))}
-                  <button onClick={handleLogout} style={{ marginLeft: "1rem" }}>
-                    Cerrar sesión
-                  </button>
-                </nav>
+                <Navbar usuarioActual={usuarioActual} onLogout={handleLogout} />
               )}
-
               <Routes>
                 {!usuarioActual ? (
                   <Route path="*" element={
@@ -199,7 +198,6 @@ function App() {
             </>
           }
         />
-
       </Routes>
     </Router>
   );
