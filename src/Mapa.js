@@ -461,17 +461,13 @@ function CapaFlota({ flota, camionesVisibles }) {
 // ─── Panel Optimizador Flota ──────────────────────────────────────────────────
 function PanelOptimizador({ puntos, allCamiones, camionesVisibles, setCamionesVisibles,
                             diaFlota, setDiaFlota, paramsFlota, setParamsFlota, flota, onClose }) {
-  const { descMin, descMax, cargaMin, cargaMax, vel, horaFin } = paramsFlota;
+  const { descMin, descMax, cargaMin, cargaMax, vel, horaFin = "16:30" } = paramsFlota;
   const setParam = (key, val) => setParamsFlota(prev => ({ ...prev, [key]: val }));
 
   const dia      = diaFlota;
   const setDia   = setDiaFlota;
   const [expandido, setExpandido] = useState(null); // camión con cronograma abierto
-
-  const flota = useMemo(() => {
-    if (!puntos.length) return null;
-    return calcularFlota(puntos, dia, { descMin, descMax, vel, cargaMin, cargaMax, horaFin });
-  }, [puntos, dia, descMin, descMax, vel, cargaMin, cargaMax, horaFin]);
+  // flota viene como prop del padre — NO recalcular aquí
 
   const lbl = { fontSize: 10, color: "#475569", display: "block", marginBottom: 3,
                 textTransform: "uppercase", letterSpacing: "0.06em" };
@@ -714,12 +710,12 @@ function PanelPoligonos({ puntos, camionesDisponibles, onClose }) {
   });
   const pCamion     = useMemo(() => puntos.filter(p => normalizeCamion(p.camion) === camion), [puntos, camion]);
   const diasActivos = useMemo(() =>
-    DIAS_ORDEN.filter(d => pCamion.some(p => (p.dia ?? "").trim().toLowerCase() === d.toLowerCase())),
+    DIAS_ORDEN.filter(d => pCamion.some(p => normalizarDia(p.dia) === normalizarDia(d))),
     [pCamion]);
   const hullTotal   = useMemo(() => convexHull(pCamion), [pCamion]);
   const hullsPorDia = useMemo(() =>
     Object.fromEntries(diasActivos.map(d => {
-      const pts = pCamion.filter(p => (p.dia ?? "").trim().toLowerCase() === d.toLowerCase());
+      const pts = pCamion.filter(p => normalizarDia(p.dia) === normalizarDia(d));
       return [d, convexHull(pts)];
     })), [pCamion, diasActivos]);
   const stats = useMemo(() => ({
@@ -748,7 +744,7 @@ function PanelPoligonos({ puntos, camionesDisponibles, onClose }) {
           <Polygon key={d} positions={hull}
             pathOptions={{ color: c.stroke, fillColor: c.fill, fillOpacity: c.fillOpacity, weight: 2 }}>
             <Tooltip sticky>
-              {d} · {pCamion.filter(p => (p.dia ?? "").toLowerCase() === d.toLowerCase()).length} puntos
+              {d} · {pCamion.filter(p => normalizarDia(p.dia) === normalizarDia(d)).length} puntos
             </Tooltip>
           </Polygon>
         );
@@ -779,7 +775,7 @@ function PanelPoligonos({ puntos, camionesDisponibles, onClose }) {
                     letterSpacing: "0.05em", margin: "0 0 8px" }}>Días activos</p>
         {diasActivos.map(d => {
           const c   = COLORES_DIA[d] ?? { fill: "#ddd", stroke: "#999" };
-          const nPts = pCamion.filter(p => (p.dia ?? "").toLowerCase() === d.toLowerCase()).length;
+          const nPts = pCamion.filter(p => normalizarDia(p.dia) === normalizarDia(d)).length;
           return (
             <label key={d} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, cursor: "pointer" }}>
               <input type="checkbox" checked={diasOn.has(d)} onChange={() => toggle(d)} />
@@ -820,7 +816,7 @@ export default function Mapa() {
   const [camionesVisibles,  setCamionesVisibles]   = useState(new Set());
   const [diaFlota,          setDiaFlota]           = useState("Lunes");
   const [paramsFlota,       setParamsFlota]        = useState({
-    descMin: 5, descMax: 10, vel: 25, cargaMin: 30, cargaMax: 120, horaFin: "17:00"
+    descMin: 5, descMax: 10, vel: 25, cargaMin: 30, cargaMax: 120, horaFin: "16:30"
   });
 
   useEffect(() => {
