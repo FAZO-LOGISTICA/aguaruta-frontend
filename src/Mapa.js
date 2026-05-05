@@ -154,6 +154,111 @@ function nearestNeighborDesdeVigia(pts) {
   return order.map(i => pts[i]);
 }
 
+// ─── Distancia total de una ruta (Vigía → paradas → Vigía) ───────────────────
+function distanciaRuta(ruta) {
+  if (!ruta.length) return 0;
+  let d = haversineKm(VIGIA.lat, VIGIA.lng, ruta[0].latitud, ruta[0].longitud);
+  for (let i = 1; i < ruta.length; i++)
+    d += haversineKm(ruta[i-1].latitud, ruta[i-1].longitud, ruta[i].latitud, ruta[i].longitud);
+  d += haversineKm(ruta[ruta.length-1].latitud, ruta[ruta.length-1].longitud, VIGIA.lat, VIGIA.lng);
+  return d;
+}
+
+// ─── 2-opt: elimina cruces invirtiendo segmentos ──────────────────────────────
+function aplicar2opt(ruta) {
+  if (ruta.length < 4) return ruta;
+  let mejor = [...ruta];
+  let mejorado = true;
+  while (mejorado) {
+    mejorado = false;
+    for (let i = 0; i < mejor.length - 1; i++) {
+      for (let j = i + 2; j < mejor.length; j++) {
+        // Costo actual: ...→i→i+1→...→j→j+1→...
+        // Costo nuevo:  ...→i→j→...→i+1→j+1→... (invertir segmento i+1..j)
+        const antes =
+          haversineKm(
+            i === 0 ? VIGIA.lat : mejor[i-1].latitud,
+            i === 0 ? VIGIA.lng : mejor[i-1].longitud,
+            mejor[i].latitud, mejor[i].longitud
+          ) +
+          haversineKm(
+            mejor[j].latitud, mejor[j].longitud,
+            j === mejor.length-1 ? VIGIA.lat : mejor[j+1]?.latitud ?? VIGIA.lat,
+            j === mejor.length-1 ? VIGIA.lng : mejor[j+1]?.longitud ?? VIGIA.lng
+          );
+        const despues =
+          haversineKm(
+            i === 0 ? VIGIA.lat : mejor[i-1].latitud,
+            i === 0 ? VIGIA.lng : mejor[i-1].longitud,
+            mejor[j].latitud, mejor[j].longitud
+          ) +
+          haversineKm(
+            mejor[i].latitud, mejor[i].longitud,
+            j === mejor.length-1 ? VIGIA.lat : mejor[j+1]?.latitud ?? VIGIA.lat,
+            j === mejor.length-1 ? VIGIA.lng : mejor[j+1]?.longitud ?? VIGIA.lng
+          );
+        if (despues < antes - 0.0001) {
+          // Invertir segmento entre i y j
+          const nuevo = [
+            ...mejor.slice(0, i),
+            ...mejor.slice(i, j + 1).reverse(),
+            ...mejor.slice(j + 1),
+          ];
+          mejor = nuevo;
+          mejorado = true;
+        }
+      }
+    }
+  }
+  return mejor;
+}
+
+// ─── Or-opt: mueve bloques de 1, 2 o 3 paradas a mejor posición ──────────────
+function aplicarOrOpt(ruta) {
+  if (ruta.length < 4) return ruta;
+  let mejor = [...ruta];
+  let mejorado = true;
+  while (mejorado) {
+    mejorado = false;
+    for (let segLen = 1; segLen <= Math.min(3, mejor.length - 2); segLen++) {
+      for (let i = 0; i <= mejor.length - segLen; i++) {
+        const segmento = mejor.slice(i, i + segLen);
+        const sinSeg   = [...mejor.slice(0, i), ...mejor.slice(i + segLen)];
+        const dBase    = distanciaRuta(mejor);
+
+        for (let j = 0; j <= sinSeg.length; j++) {
+          if (j >= i - 1 && j <= i) continue; // misma posición
+          const candidato = [
+            ...sinSeg.slice(0, j),
+            ...segmento,
+            ...sinSeg.slice(j),
+          ];
+          if (distanciaRuta(candidato) < dBase - 0.0001) {
+            mejor    = candidato;
+            mejorado = true;
+            break;
+          }
+        }
+        if (mejorado) break;
+      }
+      if (mejorado) break;
+    }
+  }
+  return mejor;
+}
+
+// ─── Optimizador completo: NN + 2-opt + Or-opt ────────────────────────────────
+function optimizarRuta(pts) {
+  if (!pts.length) return [];
+  // 1. Solución inicial con Nearest Neighbor
+  const inicial = nearestNeighborDesdeVigia(pts);
+  // 2. Mejorar con 2-opt (elimina cruces)
+  const tras2opt = aplicar2opt(inicial);
+  // 3. Pulir con Or-opt (reubica bloques de paradas)
+  const final = aplicarOrOpt(tras2opt);
+  return final;
+}
+
 function convexHull(pts) {
   if (pts.length < 3) return pts.map(p => [p.latitud, p.longitud]);
   const sorted = [...pts].sort((a, b) => a.latitud - b.latitud || a.longitud - b.longitud);
@@ -178,7 +283,7 @@ function convexHull(pts) {
 function simularCamion(puntosDia, camion, params, vigiaLibreMin) {
   const { descProm, vel, cargaProm, horaFinMin } = params;
 
-  const ruta = nearestNeighborDesdeVigia(puntosDia);
+  const ruta = optimizarRuta(puntosDia);
   const cronograma = [];
   // segmentosLogicos: waypoints para OSRM — se convierten a calles reales después
   const segmentosLogicos = [];
@@ -319,7 +424,41 @@ function calcularFlota(puntos, dia, params) {
     resultados[c] = res;
   }
 
-  // Totales flota
+  // ── Reasignación entre camiones: balancear carga ─────────────────────────────
+  // Si un camión supera el 95% de jornada y otro tiene < 75%, mover paradas
+  let cambios = true;
+  let iteraciones = 0;
+  while (cambios && iteraciones < 10) {
+    cambios = false;
+    iteraciones++;
+    const ordenados = [...camiones].sort((a, b) =>
+      resultados[b].uso - resultados[a].uso
+    );
+    for (const cCargado of ordenados) {
+      if (resultados[cCargado].uso < 90) break; // nada que balancear
+      for (const cLibre of [...ordenados].reverse()) {
+        if (cLibre === cCargado) continue;
+        if (resultados[cLibre].uso > 80) continue; // no tiene margen
+        // Intentar mover la última parada del más cargado al más libre
+        const rutaCargado = [...resultados[cCargado].ruta];
+        const rutaLibre   = [...resultados[cLibre].ruta];
+        if (rutaCargado.length <= 1) continue;
+        const parada = rutaCargado.pop();
+        const nuevaRutaCargado = optimizarRuta(rutaCargado);
+        const nuevaRutaLibre   = optimizarRuta([...rutaLibre, parada]);
+        const resCargado = simularCamion(nuevaRutaCargado, cCargado, p, VIGIA_ABRE);
+        const resLibre   = simularCamion(nuevaRutaLibre,   cLibre,   p, VIGIA_ABRE);
+        // Aceptar solo si mejora al camión cargado sin pasarse el libre
+        if (resCargado.uso < resultados[cCargado].uso && resLibre.uso <= 95) {
+          resultados[cCargado] = resCargado;
+          resultados[cLibre]   = resLibre;
+          cambios = true;
+          break;
+        }
+      }
+      if (cambios) break;
+    }
+  }
   const totalPuntos  = Object.values(resultados).reduce((s, r) => s + r.ruta.length, 0);
   const totalLitros  = Object.values(resultados).reduce((s, r) => s + r.litrosNet, 0);
   const totalMerma   = Object.values(resultados).reduce((s, r) => s + r.litrosMerma, 0);
