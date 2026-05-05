@@ -277,6 +277,15 @@ function simularCamion(puntosDia, camion, params, vigiaLibreMin) {
   };
 }
 
+// ─── Normalización de días (ignora tildes, mayúsculas y espacios) ─────────────
+function normalizarDia(dia) {
+  return (dia ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // elimina diacríticos: miércoles → miercoles
+}
+
 // ─── Motor optimización: FLOTA COMPLETA ──────────────────────────────────────
 // Simula todos los camiones del día con cola compartida en El Vigía
 function calcularFlota(puntos, dia, params) {
@@ -287,10 +296,10 @@ function calcularFlota(puntos, dia, params) {
   const p = { descProm, vel, cargaProm, horaFinMin };
 
   // Agrupar puntos por camión para el día seleccionado
-  const diaLow = dia.toLowerCase();
+  const diaLow = normalizarDia(dia);
   const porCamion = {};
   for (const pt of puntos) {
-    if ((pt.dia ?? "").trim().toLowerCase() !== diaLow) continue;
+    if (normalizarDia(pt.dia) !== diaLow) continue;
     const c = normalizeCamion(pt.camion);
     if (!c) continue;
     if (!porCamion[c]) porCamion[c] = [];
@@ -450,14 +459,13 @@ function CapaFlota({ flota, camionesVisibles }) {
 }
 
 // ─── Panel Optimizador Flota ──────────────────────────────────────────────────
-function PanelOptimizador({ puntos, allCamiones, camionesVisibles, setCamionesVisibles, onClose }) {
-  const [dia,      setDia]      = useState("Lunes");
-  const [descMin,  setDescMin]  = useState(5);
-  const [descMax,  setDescMax]  = useState(10);
-  const [cargaMin, setCargaMin] = useState(30);
-  const [cargaMax, setCargaMax] = useState(120);
-  const [vel,      setVel]      = useState(25);
-  const [horaFin,  setHoraFin]  = useState("17:00");
+function PanelOptimizador({ puntos, allCamiones, camionesVisibles, setCamionesVisibles,
+                            diaFlota, setDiaFlota, paramsFlota, setParamsFlota, flota, onClose }) {
+  const { descMin, descMax, cargaMin, cargaMax, vel, horaFin } = paramsFlota;
+  const setParam = (key, val) => setParamsFlota(prev => ({ ...prev, [key]: val }));
+
+  const dia      = diaFlota;
+  const setDia   = setDiaFlota;
   const [expandido, setExpandido] = useState(null); // camión con cronograma abierto
 
   const flota = useMemo(() => {
@@ -505,13 +513,13 @@ function PanelOptimizador({ puntos, allCamiones, camionesVisibles, setCamionesVi
       <div style={slRow}>
         <span style={{ fontSize: 10, color: "#334155", minWidth: 26 }}>min</span>
         <input type="range" min={15} max={120} value={cargaMin} step={5} style={{ flex: 1 }}
-          onChange={e => setCargaMin(+e.target.value)} />
+          onChange={e => setParam("cargaMin", +e.target.value)} />
         <span style={slVal}>{formatMin(cargaMin)}</span>
       </div>
       <div style={slRow}>
         <span style={{ fontSize: 10, color: "#334155", minWidth: 26 }}>max</span>
         <input type="range" min={15} max={120} value={cargaMax} step={5} style={{ flex: 1 }}
-          onChange={e => setCargaMax(+e.target.value)} />
+          onChange={e => setParam("cargaMax", +e.target.value)} />
         <span style={slVal}>{formatMin(cargaMax)}</span>
       </div>
 
@@ -519,13 +527,13 @@ function PanelOptimizador({ puntos, allCamiones, camionesVisibles, setCamionesVi
       <div style={slRow}>
         <span style={{ fontSize: 10, color: "#334155", minWidth: 26 }}>min</span>
         <input type="range" min={1} max={20} value={descMin} step={1} style={{ flex: 1 }}
-          onChange={e => setDescMin(+e.target.value)} />
+          onChange={e => setParam("descMin", +e.target.value)} />
         <span style={slVal}>{descMin} min</span>
       </div>
       <div style={slRow}>
         <span style={{ fontSize: 10, color: "#334155", minWidth: 26 }}>max</span>
         <input type="range" min={1} max={20} value={descMax} step={1} style={{ flex: 1 }}
-          onChange={e => setDescMax(+e.target.value)} />
+          onChange={e => setParam("descMax", +e.target.value)} />
         <span style={slVal}>{descMax} min</span>
       </div>
 
@@ -534,13 +542,13 @@ function PanelOptimizador({ puntos, allCamiones, camionesVisibles, setCamionesVi
           <label style={lbl}>Velocidad</label>
           <div style={{ ...slRow, marginBottom: 0 }}>
             <input type="range" min={10} max={60} value={vel} step={5} style={{ flex: 1 }}
-              onChange={e => setVel(+e.target.value)} />
+              onChange={e => setParam("vel", +e.target.value)} />
             <span style={slVal}>{vel} km/h</span>
           </div>
         </div>
         <div>
           <label style={lbl}>Fin jornada</label>
-          <input type="time" value={horaFin} onChange={e => setHoraFin(e.target.value)}
+          <input type="time" value={horaFin} onChange={e => setParam("horaFin", e.target.value)}
             style={{ ...sel, marginBottom: 0 }} />
         </div>
       </div>
@@ -810,6 +818,10 @@ export default function Mapa() {
   const [query,             setQuery]              = useState("");
   const [panelAct,          setPanelAct]           = useState(null);
   const [camionesVisibles,  setCamionesVisibles]   = useState(new Set());
+  const [diaFlota,          setDiaFlota]           = useState("Lunes");
+  const [paramsFlota,       setParamsFlota]        = useState({
+    descMin: 5, descMax: 10, vel: 25, cargaMin: 30, cargaMax: 120, horaFin: "17:00"
+  });
 
   useEffect(() => {
     (async () => {
@@ -888,11 +900,10 @@ export default function Mapa() {
 
   const abrirPanel = nombre => setPanelAct(prev => prev === nombre ? null : nombre);
 
-  // Calcular flota para capa mapa (parámetros por defecto, el panel los refina)
   const flotaMapa = useMemo(() => {
     if (panelAct !== "optimizador" || !puntos.length) return null;
-    return calcularFlota(puntos, "Lunes", { descMin: 5, descMax: 10, vel: 25, cargaMin: 30, cargaMax: 120, horaFin: "17:00" });
-  }, [puntos, panelAct]);
+    return calcularFlota(puntos, diaFlota, paramsFlota);
+  }, [puntos, panelAct, diaFlota, paramsFlota]);
 
   return (
     <div className="main-container fade-in">
@@ -995,6 +1006,11 @@ export default function Mapa() {
             allCamiones={allCamiones}
             camionesVisibles={camionesVisibles}
             setCamionesVisibles={setCamionesVisibles}
+            diaFlota={diaFlota}
+            setDiaFlota={setDiaFlota}
+            paramsFlota={paramsFlota}
+            setParamsFlota={setParamsFlota}
+            flota={flotaMapa}
             onClose={() => setPanelAct(null)}
           />
         )}
