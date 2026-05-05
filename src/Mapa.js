@@ -183,22 +183,19 @@ function simularCamion(puntosDia, camion, params, vigiaLibreMin) {
   // segmentosLogicos: waypoints para OSRM — se convierten a calles reales después
   const segmentosLogicos = [];
 
-  // Primera carga: el camión llega a VIGIA_ABRE pero espera si hay fila
-  // llegadaInicial = cuándo puede empezar a cargar (el Vigía está libre desde vigiaLibreMin)
-  const llegadaInicial = vigiaLibreMin; // ya viene con Math.max aplicado desde calcularFlota
+  // Todos parten a las 08:00 — sin cola compartida
+  const llegadaInicial = VIGIA_ABRE; // siempre 08:00
   const { espera: espIni, motivo: motIni, salida: sal0 } =
     calcularSalidaVigia(llegadaInicial, cargaProm);
 
   let now       = sal0;
   let agua      = CAPACIDAD_L;
   let nViajes   = 1;
-  // Espera = diferencia entre cuando llegó y cuando empezó a cargar
   const inicioCarga = sal0 - cargaProm;
   let tEspera   = inicioCarga - llegadaInicial;
   let distTotal = 0;
   let posLat    = VIGIA.lat, posLon = VIGIA.lng;
   let wpActual  = [{ lat: VIGIA.lat, lng: VIGIA.lng }];
-  // vigiaOcupadoHasta = cuando termina la PRIMERA carga (para que el siguiente camión sepa cuándo puede cargar)
   let vigiaOcupadoHasta = sal0;
 
   if (tEspera > 0) {
@@ -313,19 +310,13 @@ function calcularFlota(puntos, dia, params) {
   );
   if (!camiones.length) return null;
 
-  // Cola en El Vigía: cada camión espera a que el anterior termine de cargar
-  // vigiaLibre arranca en 08:00 y avanza solo con el tiempo de carga, no con toda la ruta
-  let vigiaLibre = VIGIA_ABRE;
+  // Todos los camiones parten desde las 08:00 independientemente
+  // No hay cola compartida — cada uno carga como si fuera el único
   const resultados = {};
 
   for (const c of camiones) {
-    // Pasar el máximo entre 08:00 y vigiaLibre para respetar apertura
-    const vigiaDisponible = Math.max(VIGIA_ABRE, vigiaLibre);
-    const res = simularCamion(porCamion[c], c, p, vigiaDisponible);
+    const res = simularCamion(porCamion[c], c, p, VIGIA_ABRE);
     resultados[c] = res;
-    // vigiaLibre = cuando termina la primera carga de este camión
-    // así el siguiente camión sabe cuándo puede entrar a cargar
-    vigiaLibre = res.vigiaOcupadoHasta;
   }
 
   // Totales flota
