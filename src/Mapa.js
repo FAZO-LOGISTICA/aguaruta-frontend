@@ -1,5 +1,5 @@
-// src/Mapa.js — AguaRuta v3.0.0
-import React, { useState, useEffect, useMemo } from "react";
+// src/Mapa.js — AguaRuta v3.1.0
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   MapContainer, TileLayer, Marker, Popup,
   Polyline, Polygon, useMap, Tooltip,
@@ -28,6 +28,38 @@ const COLORES_DIA = {
   Viernes:    { fill: "#CECBF6", stroke: "#534AB7", fillOpacity: 0.35 },
   Sábado:     { fill: "#F4C0D1", stroke: "#993556", fillOpacity: 0.35 },
 };
+
+// ─── OSRM: ruteo real por calles ──────────────────────────────────────────────
+const OSRM_BASE = "https://router.project-osrm.org/route/v1/driving";
+
+// Recibe array de {lat, lng}, devuelve array de [lat, lng] siguiendo calles reales
+// Una sola llamada HTTP para toda la secuencia de puntos
+async function obtenerRutaOSRM(waypoints) {
+  if (waypoints.length < 2) return waypoints.map(p => [p.lat, p.lng]);
+  const coords = waypoints.map(p => `${p.lng},${p.lat}`).join(";");
+  const url = `${OSRM_BASE}/${coords}?overview=full&geometries=geojson&steps=false`;
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.code !== "Ok" || !data.routes?.[0]) {
+      // Fallback a línea recta si OSRM falla
+      return waypoints.map(p => [p.lat, p.lng]);
+    }
+    // GeoJSON devuelve [lng, lat] — invertir a [lat, lng] para Leaflet
+    return data.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+  } catch {
+    return waypoints.map(p => [p.lat, p.lng]);
+  }
+}
+
+// Obtiene rutas reales para todos los segmentos de un camión en paralelo
+// segmentosLogicos: array de { waypoints: [{lat,lng},...], tipo: "viaje"|"regreso" }
+async function obtenerSegmentosOSRM(segmentosLogicos) {
+  const promesas = segmentosLogicos.map(seg =>
+    obtenerRutaOSRM(seg.waypoints).then(coords => ({ coords, tipo: seg.tipo }))
+  );
+  return Promise.all(promesas);
+}
 
 // ─── Helpers fetch ────────────────────────────────────────────────────────────
 async function fetchRutasActivas(intentos = 3) {
@@ -148,7 +180,8 @@ function simularCamion(puntosDia, camion, params, vigiaLibreMin) {
 
   const ruta = nearestNeighborDesdeVigia(puntosDia);
   const cronograma = [];
-  const segmentos  = [];
+  // segmentosLogicos: waypoints para OSRM — se convierten a calles reales después
+  const segmentosLogicos = [];
 
   // Primera carga: el camión llega a VIGIA_ABRE pero espera si hay fila
   const llegadaInicial = Math.max(VIGIA_ABRE, vigiaLibreMin);
@@ -161,7 +194,8 @@ function simularCamion(puntosDia, camion, params, vigiaLibreMin) {
   let tEspera   = espIni + (vigiaLibreMin > VIGIA_ABRE ? vigiaLibreMin - VIGIA_ABRE : 0);
   let distTotal = 0;
   let posLat    = VIGIA.lat, posLon = VIGIA.lng;
-  let segActual = [[VIGIA.lat, VIGIA.lng]];
+  // waypoints del segmento actual (se enviará a OSRM como un bloque)
+  let wpActual  = [{ lat: VIGIA.lat, lng: VIGIA.lng }];
   // El Vigía queda libre cuando este camión termina su primera carga
   let vigiaOcupadoHasta = sal0;
 
@@ -181,9 +215,8 @@ function simularCamion(puntosDia, camion, params, vigiaLibreMin) {
       const dReg = haversineKm(posLat, posLon, VIGIA.lat, VIGIA.lng);
       const tReg = (dReg / vel) * 60;
       distTotal += dReg; now += tReg;
-      segActual.push([VIGIA.lat, VIGIA.lng]);
-      segmentos.push({ coords: [...segActual], tipo: "regreso" });
-      segActual = [[VIGIA.lat, VIGIA.lng]];
+      segmentosLogicos.push({ waypoints: [...wpActual, { lat: VIGIA.lat, lng: VIGIA.lng }], tipo: "regreso" });
+      wpActual = [{ lat: VIGIA.lat, lng: VIGIA.lng }];
 
       cronograma.push({ hora: minToHhmm(now), tipo: "regreso",
         txt: `Regreso El Vigía · sin agua (${dReg.toFixed(1)} km · ${formatMin(tReg)})` });
@@ -210,7 +243,7 @@ function simularCamion(puntosDia, camion, params, vigiaLibreMin) {
 
     const dP = haversineKm(posLat, posLon, p.latitud, p.longitud);
     distTotal += dP; now += (dP / vel) * 60; agua -= consumo;
-    segActual.push([p.latitud, p.longitud]);
+    wpActual.push({ lat: p.latitud, lng: p.longitud });
 
     cronograma.push({ hora: minToHhmm(now), tipo: "parada", paradaIdx: i,
       txt: `${i+1}. ${p.nombre} · ${p.litros}L + ${MERMA_L} merma · quedan ${Math.round(agua)}L` });
@@ -220,8 +253,9 @@ function simularCamion(puntosDia, camion, params, vigiaLibreMin) {
 
   const dFin = haversineKm(posLat, posLon, VIGIA.lat, VIGIA.lng);
   distTotal += dFin; now += (dFin / vel) * 60;
-  segActual.push([VIGIA.lat, VIGIA.lng]);
-  segmentos.push({ coords: [...segActual], tipo: "viaje" });
+  wpActual.push({ lat: VIGIA.lat, lng: VIGIA.lng });
+  segmentosLogicos.push({ waypoints: [...wpActual], tipo: "viaje" });
+
   cronograma.push({ hora: minToHhmm(now), tipo: "base",
     txt: `Retorno final El Vigía · ${dFin.toFixed(1)} km` });
 
@@ -232,12 +266,14 @@ function simularCamion(puntosDia, camion, params, vigiaLibreMin) {
   const uso          = Math.round((jornadaUsada / jornadaDisp) * 100);
 
   return {
-    camion, ruta, cronograma, segmentos,
+    camion, ruta, cronograma,
+    segmentosLogicos,   // se resolverán a calles reales con OSRM
+    segmentos: null,    // se llena asincrónicamente en CapaFlota
     distTotal: distTotal.toFixed(1),
     jornadaUsada, jornadaDisp, uso,
     nViajes, tEspera, litrosNet, litrosMerma,
-    salidaFinal: now,        // cuándo termina este camión
-    vigiaOcupadoHasta,       // hasta cuándo ocupó el Vigía en su última carga
+    salidaFinal: now,
+    vigiaOcupadoHasta,
   };
 }
 
@@ -335,7 +371,35 @@ function LegendControl({ items }) {
 
 // ─── Capa mapa flota ──────────────────────────────────────────────────────────
 function CapaFlota({ flota, camionesVisibles }) {
+  // segmentosResueltos: { [camion]: [{coords, tipo}] | "cargando" | "error" }
+  const [segmentosResueltos, setSegmentosResueltos] = useState({});
+
+  useEffect(() => {
+    if (!flota) return;
+    setSegmentosResueltos({}); // reset al cambiar flota
+
+    // Resolver cada camión en paralelo con OSRM
+    flota.camiones.forEach(async (c) => {
+      const res = flota.resultados[c];
+      if (!res?.segmentosLogicos?.length) return;
+
+      setSegmentosResueltos(prev => ({ ...prev, [c]: "cargando" }));
+      try {
+        const segs = await obtenerSegmentosOSRM(res.segmentosLogicos);
+        setSegmentosResueltos(prev => ({ ...prev, [c]: segs }));
+      } catch {
+        // Fallback: líneas rectas desde waypoints originales
+        const segs = res.segmentosLogicos.map(s => ({
+          coords: s.waypoints.map(p => [p.lat, p.lng]),
+          tipo:   s.tipo,
+        }));
+        setSegmentosResueltos(prev => ({ ...prev, [c]: segs }));
+      }
+    });
+  }, [flota]);
+
   if (!flota) return null;
+
   return (
     <>
       {flota.camiones
@@ -343,17 +407,29 @@ function CapaFlota({ flota, camionesVisibles }) {
         .map(c => {
           const res   = flota.resultados[c];
           const color = getCamionColor(c);
+          const segs  = segmentosResueltos[c];
+
           return (
             <React.Fragment key={c}>
-              {res.segmentos.map((seg, i) => (
+              {/* Segmentos de ruta por calles reales */}
+              {Array.isArray(segs) && segs.map((seg, i) => (
                 <Polyline key={i} positions={seg.coords}
                   pathOptions={{
                     color:     seg.tipo === "regreso" ? "#ef4444" : color,
-                    weight:    seg.tipo === "regreso" ? 2 : 2.5,
+                    weight:    seg.tipo === "regreso" ? 2 : 3,
                     opacity:   0.85,
-                    dashArray: seg.tipo === "regreso" ? "5,5" : undefined,
+                    dashArray: seg.tipo === "regreso" ? "6,5" : undefined,
                   }} />
               ))}
+
+              {/* Indicador de carga mientras OSRM responde */}
+              {segs === "cargando" && res.segmentosLogicos.map((seg, i) => (
+                <Polyline key={i}
+                  positions={seg.waypoints.map(p => [p.lat, p.lng])}
+                  pathOptions={{ color, weight: 1.5, opacity: 0.3, dashArray: "4,6" }} />
+              ))}
+
+              {/* Marcadores numerados */}
               {res.ruta.map((p, i) => (
                 <Marker key={p.id ?? i} position={[p.latitud, p.longitud]}
                   icon={iconoNumero(color, i + 1)}>
