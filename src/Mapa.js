@@ -184,26 +184,28 @@ function simularCamion(puntosDia, camion, params, vigiaLibreMin) {
   const segmentosLogicos = [];
 
   // Primera carga: el camión llega a VIGIA_ABRE pero espera si hay fila
-  const llegadaInicial = Math.max(VIGIA_ABRE, vigiaLibreMin);
+  // llegadaInicial = cuándo puede empezar a cargar (el Vigía está libre desde vigiaLibreMin)
+  const llegadaInicial = vigiaLibreMin; // ya viene con Math.max aplicado desde calcularFlota
   const { espera: espIni, motivo: motIni, salida: sal0 } =
     calcularSalidaVigia(llegadaInicial, cargaProm);
 
   let now       = sal0;
   let agua      = CAPACIDAD_L;
   let nViajes   = 1;
-  let tEspera   = espIni + (vigiaLibreMin > VIGIA_ABRE ? vigiaLibreMin - VIGIA_ABRE : 0);
+  // Espera = diferencia entre cuando llegó y cuando empezó a cargar
+  const inicioCarga = sal0 - cargaProm;
+  let tEspera   = inicioCarga - llegadaInicial;
   let distTotal = 0;
   let posLat    = VIGIA.lat, posLon = VIGIA.lng;
-  // waypoints del segmento actual (se enviará a OSRM como un bloque)
   let wpActual  = [{ lat: VIGIA.lat, lng: VIGIA.lng }];
-  // El Vigía queda libre cuando este camión termina su primera carga
+  // vigiaOcupadoHasta = cuando termina la PRIMERA carga (para que el siguiente camión sepa cuándo puede cargar)
   let vigiaOcupadoHasta = sal0;
 
   if (tEspera > 0) {
-    cronograma.push({ hora: minToHhmm(llegadaInicial - (vigiaLibreMin > VIGIA_ABRE ? vigiaLibreMin - VIGIA_ABRE : 0)),
-      tipo: "espera", txt: `Espera ${formatMin(tEspera)} en El Vigía (fila + ${motIni ?? "apertura"})` });
+    cronograma.push({ hora: minToHhmm(llegadaInicial), tipo: "espera",
+      txt: `Espera ${formatMin(tEspera)} en El Vigía (${motIni ?? "fila"})` });
   }
-  cronograma.push({ hora: minToHhmm(sal0 - cargaProm), tipo: "carga",
+  cronograma.push({ hora: minToHhmm(inicioCarga), tipo: "carga",
     txt: `Carga #1 · ${formatMin(cargaProm)} · ${CAPACIDAD_L.toLocaleString()} L` });
   cronograma.push({ hora: minToHhmm(sal0), tipo: "base", txt: "Salida desde El Vigía" });
 
@@ -311,16 +313,18 @@ function calcularFlota(puntos, dia, params) {
   );
   if (!camiones.length) return null;
 
-  // Simular flota secuencialmente compartiendo la cola del Vigía
-  // El Vigía atiende de a uno → vigiaLibre avanza con cada carga
-  let vigiaLibre = VIGIA_ABRE; // el Vigía está libre desde que abre
+  // Cola en El Vigía: cada camión espera a que el anterior termine de cargar
+  // vigiaLibre arranca en 08:00 y avanza solo con el tiempo de carga, no con toda la ruta
+  let vigiaLibre = VIGIA_ABRE;
   const resultados = {};
 
   for (const c of camiones) {
-    const res = simularCamion(porCamion[c], c, p, vigiaLibre);
+    // Pasar el máximo entre 08:00 y vigiaLibre para respetar apertura
+    const vigiaDisponible = Math.max(VIGIA_ABRE, vigiaLibre);
+    const res = simularCamion(porCamion[c], c, p, vigiaDisponible);
     resultados[c] = res;
-    // El Vigía queda ocupado hasta que termina la primera carga de este camión
-    // (las recargas intermedias también bloquean pero el motor las maneja internamente)
+    // vigiaLibre = cuando termina la primera carga de este camión
+    // así el siguiente camión sabe cuándo puede entrar a cargar
     vigiaLibre = res.vigiaOcupadoHasta;
   }
 
